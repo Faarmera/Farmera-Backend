@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Failed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #e53935;
+        }
+    </style>
+</head>
+<body>
+    <h1>Email Verification Failed</h1>
+    <p>The verification link is invalid or has expired. Please request a new verification link.</p>
+    <button onclick="window.location.href='http://localhost:5000/api/v1/auth/resendVerification'">Resend Verification Email</button>
+</body>
+</html>
