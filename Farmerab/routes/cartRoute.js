@@ -5,7 +5,7 @@ const authorize = require('../middlewares/roleCheckMiddleware.js')
 const router = express.Router();
 
 router.get("/get/:id", protectRoute, authorize(['admin', `buyer`, `farmer`]), getUserCart);
-router.get("/allCarts", protectRoute, authorize(['admin', `buyer`, `farmer`]), getAllCarts)
+router.get("/get/allCarts", protectRoute, authorize(['admin', `buyer`, `farmer`]), getAllCarts)
 router.post("/add", authorize(['admin', `buyer`, `farmer`]), addToCart);
 router.put("/cart/:cartId/product/:productId", authorize(['admin', `buyer`, `farmer`]), deleteFromCart);
 

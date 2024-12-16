@@ -3,7 +3,7 @@ const { getAllProducts, getProductById, createProduct, updateProduct, deleteProd
 const upload = require("../config/multer.js")
 const router = express.Router();
 
-router.get("/allProducts", getAllProducts);
+router.get("/get/allProducts", getAllProducts);
 router.get("/get/:id", getProductById);
 router.post("/create", upload, createProduct);
 router.put("/update/:id", upload/*.array("images", 10)*/, updateProduct);

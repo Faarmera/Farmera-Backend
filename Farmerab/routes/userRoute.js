@@ -5,9 +5,9 @@ const router = express.Router();
 const authorize = require('../middlewares/roleCheckMiddleware.js');
 
 
-router.get("/profile/allProfiles", authorize(['admin']), getAllProfiles);
-router.get("/profile/getSignedinUserProfile", protectRoute, authorize(['admin', `buyer`, `farmer`]), protectRoute, getSignedinUserProfile);
-router.get("/profile/:email", protectRoute, authorize(['admin']), getUserProfile);
+router.get("/profile/get/allProfiles", authorize(['admin']), getAllProfiles);
+router.get("/profile/get/SignedinUserProfile", protectRoute, authorize(['admin', `buyer`, `farmer`]), protectRoute, getSignedinUserProfile);
+router.get("/profile/get/:email", protectRoute, authorize(['admin']), getUserProfile);
 router.post("/profile/update", protectRoute, authorize(['admin', `buyer`, `farmer`]), updateUserProfile);
 
 module.exports = router;

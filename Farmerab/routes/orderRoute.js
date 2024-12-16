@@ -5,10 +5,10 @@ const { protectRoute } = require("../middlewares/protectRoute.js");
 const router = express.Router();
 
 router.post("/create", protectRoute, createOrder);
-router.get("/allOrders", protectRoute, getAllOrders);
-router.get("/:orderId", protectRoute, getOrderById);
-router.get("/:userId", protectRoute, getUserOrders);
-router.put("/:orderId/return", protectRoute, returnOrder);
-router.put("/:orderId/cancel", protectRoute, cancelOrder);
+router.get("/get/allOrders", protectRoute, getAllOrders);
+router.get("/get/:orderId", protectRoute, getOrderById);
+router.get("/get/:userId", protectRoute, getUserOrders);
+router.put("/return/:orderId", protectRoute, returnOrder);
+router.put("/cancel/:orderId", protectRoute, cancelOrder);
 
 module.exports = router;

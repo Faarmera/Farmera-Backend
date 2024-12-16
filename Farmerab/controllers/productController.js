@@ -1,7 +1,41 @@
 const Product = require("../models/Product.js");
 const Category = require("../models/Category.js")
 const Cloudinary = require("../config/cloudinary.js");
+const mongoose = require("mongoose");
 const fs = require("fs");
+
+// const getAllProducts = async (req, res) => {
+//   try {
+//     const { category, minPrice, maxPrice, location } = req.query;
+
+//     const filter = {};
+
+//     if (category) {
+//       filter.category = category;
+//     }
+
+//     if (minPrice || maxPrice) {
+//       filter.price = {};
+//       if (minPrice) {
+//         filter.price.$gte = parseFloat(minPrice);
+//       }
+//       if (maxPrice) {
+//         filter.price.$lte = parseFloat(maxPrice);
+//       }
+//     }
+
+//     if (location) {
+//       filter.location = location;
+//     }
+
+//     const products = await Product.find(filter);
+
+//     res.status(200).json(products);
+//   } catch (error) {
+//     console.error("Error fetching products:", error.message);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// };
 
 const getAllProducts = async (req, res) => {
   try {
@@ -10,24 +44,29 @@ const getAllProducts = async (req, res) => {
     const filter = {};
 
     if (category) {
-      filter.category = category;
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        filter.category = category;
+      } else {
+        const categoryDoc = await Category.findOne({ name: category });
+        if (categoryDoc) {
+          filter.category = categoryDoc._id;
+        } else {
+          return res.status(404).json({ error: "Category not found" });
+        }
+      }
     }
 
     if (minPrice || maxPrice) {
       filter.price = {};
-      if (minPrice) {
-        filter.price.$gte = parseFloat(minPrice);
-      }
-      if (maxPrice) {
-        filter.price.$lte = parseFloat(maxPrice);
-      }
+      if (minPrice) filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
     }
 
     if (location) {
       filter.location = location;
     }
 
-    const products = await Product.find(filter);
+    const products = await Product.find(filter).populate("category", "name");
 
     res.status(200).json(products);
   } catch (error) {

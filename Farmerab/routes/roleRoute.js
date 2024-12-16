@@ -3,6 +3,6 @@ const { seedRoles, getRole } = require("../controllers/roleController.js");
 const router = express.Router();
 
 
-router.get("/:id/role", getRole);
+router.get("/role/:id", getRole);
 
 module.exports = router;
