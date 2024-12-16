@@ -3,15 +3,15 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema({
   firstname: {
     type: String,
-    require: true,
+    required: true,
   },
   lastname: {
     type: String,
-    require: true,
+    required: true,
   },
   email: {
     type: String,
-    require: true,
+    required: true,
     unique: true
   },
   emailVerified: {
@@ -20,12 +20,12 @@ const userSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["buyer", "farmer"],
+    enum: ["buyer", "farmer", "admin"],
     default: ""
   },
   phonenumber: {
     type: Number,
-    require: true,
+    required: true,
     unique: true,
     minLength: 11
   },
@@ -33,16 +33,24 @@ const userSchema = new mongoose.Schema({
     type: String,
   },
   state: {
-    type:String,
+    type: String,
   },
   password: {
     type: String,
-    require: true,
+    required: true,
     minLength: 8
   },
   role: { 
-  type: mongoose.Schema.Types.ObjectId, 
-  ref: 'Role' 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Role' 
+  },
+  resetPasswordToken: {
+    type: String,
+    default: null
+  },
+  resetPasswordExpiry: {
+    type: Date,
+    default: null
   },
   created_at: { 
     type: Date, 
@@ -50,7 +58,7 @@ const userSchema = new mongoose.Schema({
   },
   updated_at: { 
     type: Date, 
-    default:Date.now
+    default: Date.now
   },
 }, 
   { timestamps: true }

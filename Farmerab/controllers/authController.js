@@ -97,154 +97,95 @@ const resendVerificationEmail = async (req, res) => {
 };
 
 const forgotPassword = async (req, res) => {
-    try{
-    
-    const user = await User.findOne({ email: req.body.email})
-   
-    if(!user){
-      return res.status(404).json({error: "user not found"})
-    }
+  try {
+      const { email } = req.body;
 
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-    const type = "forgotPassword"
+      const user = await User.findOne({ email });
+      if (!user) {
+          return res.status(404).json({ error: "User not found" });
+      }
 
-    await OTP.create({
-      user:user._id, 
-      otp,
-      type,
-      expiresAt: expiresAt
-    })
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      
+      const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+      
+      const resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
 
-    return res.status(200).json({ message: "OTP sent successfully"})
-   
-    } catch (error){
-      console.log("error in forgot password controller", error)
-      res.status(500).json({ error: error.message})
-    }
+      user.resetPasswordToken = hashedResetToken;
+      user.resetPasswordExpiry = resetTokenExpiry;
+      await user.save();
+
+      const resetUrl = `${process.env.BASE_URL}/auth/resetPassword?token=${resetToken}&email=${email}`;
+
+      const emailHtml = `
+          <p><strong>Hello ${user.firstname},</strong></p> <br> <br>
+          <p>You have requested a password reset for your Farmera account.</p> <br> <br>
+          <p>Click the link below to reset your password. This link will expire in 1 hour:</p>
+          <a href="${resetUrl}">Reset Password</a>
+          <p>If you did not request a password reset, please ignore this email.</p> <br><br>
+          <p>Best regards,<br> <br>The Farmera Team</p>
+      `;
+
+      await sendEmail(email, 'Farmera Password Reset', emailHtml);
+
+      res.status(200).json({ 
+          message: "Password reset instructions have been sent to your email" 
+      });
+  } catch (error) {
+      console.error("Error in forgot password controller:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+  }
 };
 
 const resetPassword = async (req, res) => {
   try {
-    const { email, newPassword, comfirmNewPassword } = req.body;
+      const { email, token, newPassword, confirmNewPassword } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
+      if (!email || !token) {
+          return res.status(400).json({ message: "Invalid reset request" });
+      }
 
-    if (!newPassword || !comfirmNewPassword) {
-      return res.status(400).json({ message: "New password and confirm new password are required" });
-    }
+      if (!newPassword || !confirmNewPassword) {
+          return res.status(400).json({ message: "New password and confirm new password are required" });
+      }
 
-    if (newPassword !== comfirmNewPassword) {
-      return res.status(400).json({ message: "New password and confirm new password do not match" });
-    }
+      if (newPassword !== confirmNewPassword) {
+          return res.status(400).json({ message: "New password and confirm new password do not match" });
+      }
 
-    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      return res.status(400).json({ 
-        message: "Password must contain at least one uppercase letter and one special character." 
-      });
-    }
+      const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+      if (!passwordRegex.test(newPassword)) {
+          return res.status(400).json({ 
+              message: "Password must contain at least one uppercase letter and one special character." 
+          });
+      }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: "User with this email does not exist" });
-    }
+      const user = await User.findOne({ email });
+      if (!user) {
+          return res.status(400).json({ message: "User with this email does not exist" });
+      }
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    user.password = hashedPassword;
-    await user.save();
+      if (
+          user.resetPasswordToken !== hashedToken || 
+          user.resetPasswordExpiry < Date.now()
+      ) {
+          return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
 
-    return res.status(200).json({ message: "Password reset successful" });
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+      user.password = hashedPassword;
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpiry = undefined;
+      await user.save();
+
+      return res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
-    console.error("Error in reset password controller: ", error.message);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-    
-};
-
-const verifyOTP = async (req, res) => {
-  try{
-
-    const { otp, email } = req.body;
-
-    const existingUser = await User.findOne({email});
-    if(!existingUser){
-      return res.status(400).json({ message: "Invalid email"})
-    }
-
-    const OTPExists = await OTP.findOne({ user:existingUser._id, otp:otp})
-    if(!OTPExists){
-      return res.status(400).json({ message: "invalid OTP"})
-    }
-
-    if(OTPExists.expiresAt < new Date()){
-      return res.status(400).json({ message: "OTP has expired"})
-    }
-
-    await await OTP.deleteOne({ 
-      user: existingUser._id, 
-    });  
-    return res.status(200).json({message: "OTP verified successfully"});
-
-  } catch (error) {
-      console.log("error in verify otp controller: ", error.message)
-      return res.status(500).json({ error: "Internal server error"})
-  }
-};
-
-const resendOTP = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: 'Missing required parameters.' });
-    }
-
-    const existingUser = await User.findOne({ email });
-    if (!existingUser) {
-      return res.status(400).json({ message: 'Invalid Email.' });
-    }
-
-    const currentTime = new Date();
-    const existingOtp = await OTP.findOne({ 
-      user: existingUser._id,
-      expiresAt: { $gt: currentTime } 
-    });
-
-    if (existingOtp) {
-      const remainingTime = Math.ceil((existingOtp.expiresAt - currentTime) / 60000);
-      return res.status(400).json({ 
-        message: `An OTP is still valid. Please wait ${remainingTime} minute(s) before requesting a new one.`,
-        remainingTime: `${remainingTime} minutes`
-      });
-    }
-
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-
-    await OTP.deleteMany({ 
-      user: existingUser._id, 
-      expiresAt: { $lte: currentTime } 
-    });
-
-    await OTP.create({ 
-      user: existingUser._id, 
-      otp, 
-      expiresAt: expiresAt 
-    });
-
-    console.log(`OTP for ${email}: ${otp}`);
-
-    return res.status(200).json({ 
-      message: `OTP for ${email} has been sent out successfully.` 
-    });
-  } catch (error) {
-    console.log("Error in resend Otp controller", error.message);
-    return res.status(500).json({ error: "Internal server error" });
+      console.error("Error in reset password controller: ", error.message);
+      return res.status(500).json({ error: "Internal server error" });
   }
 };
 
