@@ -248,7 +248,93 @@ const resendOTP = async (req, res) => {
   }
 };
 
-const signFarmerUp = async (req, res) => {
+const adminSignUp = async (req, res) => {
+  try {
+    const { firstname, lastname, email, phonenumber, password} = req.body;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+    }
+
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    if (!passwordRegex.test(password)) {
+        return res.status(400).json({
+          message: 'Password must contain at least one uppercase letter and one special character.',
+        });
+    }
+
+    if (phonenumber.length !== 11) {
+        return res.status(400).json({ error: "Phone Number must be 11 digits long" });
+    }
+
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+        return res.status(400).json({ error: "Email is already taken" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const userRole = await Role.findOne({ name: 'admin' });
+
+    const newUser = new User({
+        firstname,
+        lastname,
+        email,
+        type: "admin",
+        phonenumber,
+        password: hashedPassword,
+        emailVerified: false,
+        role: userRole._id
+    });
+
+    await newUser.save();
+
+    const uniqueString = uuidv4() + newUser._id;
+
+    await UserVerification.create({
+        userId: newUser._id,
+        uniqueString: await bcrypt.hash(uniqueString, 10),
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
+    });
+
+    const verificationUrl = `${process.env.BASE_URL}/auth/verify/${newUser._id}/${uniqueString}`;
+    const emailHtml = `
+        <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
+        <a href="${verificationUrl}">Verify Email</a> <br>
+        This link will expire in 30 minutes. <br>
+        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
+        Best, <br>  <br>
+        The Farmera Team</p>
+    `;
+
+    await sendEmail(email, 'Farmera Verification Mail', emailHtml);
+
+    res.status(201).json({
+        message: 'User created. Verification email sent.',
+        user: {
+            _id: newUser._id,
+            firstname: newUser.firstname,
+            lastname: newUser.lastname,
+            email: newUser.email,
+            type: newUser.type ,
+            phonenumber: newUser.phonenumber,
+            role: userRole._id
+        },
+    });
+} catch (error) {
+    console.error("Error in signFarmerUp controller:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+}
+};
+
+const farmerSignUp = async (req, res) => {
   try {
     const { firstname, lastname, email, phonenumber, state, password, farmAddress } = req.body;
 
@@ -338,7 +424,7 @@ const signFarmerUp = async (req, res) => {
 }
 };
   
-const signBuyerUp = async (req, res) => {
+const buyerSignUp = async (req, res) => {
   try{
     const { firstname, lastname, email, phonenumber, password } = req.body;
 
@@ -438,33 +524,16 @@ const signIn = async (req, res) => {
     if(!user || !isPasswordCorrect){
       return res.status(400).json({error: "Invalid username or password"})
     }
-  
-    //   if (User.verified == false ) {
-    //     res.json({
-    //       status: "failed",
-    //       message: "email has not been verified check your inbox"
-    //     })
-    //   } else{
-    //     generateTokenAndSetCookie (user._id, res);
-  
-    //     res.status(200).json({
-    //     _id: user._id,
-    //     firstname: user.firstname,
-    //     lastname: user.lastname,
-    //     email: user.email,
-    //     phonenumber: user.phonenumber,
-    //     });
-    //   } 
 
-  generateTokenAndSetCookie (user._id, res);
-  
-  res.status(200).json({
-  _id: user._id,
-  firstname: user.firstname,
-  lastname: user.lastname,
-  email: user.email,
-  phonenumber: user.phonenumber,
-  });
+    generateTokenAndSetCookie (user._id, res);
+    
+    res.status(200).json({
+    _id: user._id,
+    firstname: user.firstname,
+    lastname: user.lastname,
+    email: user.email,
+    phonenumber: user.phonenumber,
+    });
 
   } catch(error) {
     console.log("error in login controller", error.message);
@@ -483,5 +552,5 @@ const signOut = async (req, res) => {
 };
 
 module.exports = {
-  signBuyerUp, signFarmerUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendOTP, verifyEmail, resendVerificationEmail
+  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendOTP, verifyEmail, resendVerificationEmail
 }
