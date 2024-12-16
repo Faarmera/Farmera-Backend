@@ -45,58 +45,6 @@ const getProductById = async (req, res) => {
   }
 };
 
-// const createProduct = async (req, res) => {
-//   try {
-//     if (!req.files || req.files.length === 0) {
-//       return res.status(400).json({ error: "At least one image is required" });
-//     }
-
-//     const { name, store, qtyAvailable, category, price, location, description } = req.body;
-
-//     const images = [];
-//     const imageIds = [];
-
-//     for (const file of req.files) {
-//       console.log("Processing file:", file.originalname, "Path:", file.path);
-//       if (!file.path) {
-//         return res.status(400).json({ error: "Invalid file or missing file path." });
-//       }
-
-//       const result = await Cloudinary.uploader.upload(file.path, {
-//         folder: "products",
-//       });
-
-//       console.log("Uploaded file to Cloudinary:", result.secure_url);
-
-//       images.push(result.secure_url);
-//       imageIds.push(result.public_id);
-
-//       if (fs.existsSync(file.path)) {
-//         fs.unlinkSync(file.path);
-//       }
-//     }
-
-//     const newProduct = new Product({
-//       name,
-//       store,
-//       qtyAvailable,
-//       category,
-//       price,
-//       location,
-//       description,
-//       images,
-//       imageIds,
-//     });
-
-//     await newProduct.save();
-
-//     res.status(201).json({ message: "Product created successfully", product: newProduct });
-//   } catch (error) {
-//     console.error("Error creatingProduct controller:", error.message);
-//     res.status(500).json({ error: "Internal server error" });
-//   }
-// };
-
 const createProduct = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
