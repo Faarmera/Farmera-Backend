@@ -103,15 +103,15 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ error: "At least one image is required" });
     }
 
-    const { name, store, qtyAvailable, category, price, location, description } = req.body;
-    if (!name || !store || !category || !price || !qtyAvailable || !location) {
+    const { name, store, qtyAvailable, categoryId, price, location, description } = req.body;
+    if (!name || !store || !categoryId || !price || !qtyAvailable || !location) {
       return res.status(400).json({ error: "All fields are required" });
     }
     if (price <= 0 || qtyAvailable < 0) {
       return res.status(400).json({ error: "Invalid price or quantity available" });
     }
 
-    const existingCategory = await Category.findById(category);
+    const existingCategory = await Category.findById(categoryId);
     if (!existingCategory) {
       return res.status(404).json({ error: "Category not found" });
     }
