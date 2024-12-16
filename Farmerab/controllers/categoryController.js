@@ -2,19 +2,24 @@ const Category = require("../models/Category.js");
 
 const createCategory = async (req, res) => {
   try {
-      const { name } = req.body;
+    const { name } = req.body;
 
-      if (!name) {
-          return res.status(400).json({ error: "Name is required" });
-      }
+    if (!name) {
+      return res.status(400).json({ error: "Name is required" });
+    }
 
-      const newCategory = new Category({ name });
-      await newCategory.save();
+    const existingCategory = await Category.findOne({ name: name.trim() });
+    if (existingCategory) {
+      return res.status(409).json({ error: "Category already exists" });
+    }
 
-      res.status(201).json({ message: "Category created successfully", category: newCategory });
+    const newCategory = new Category({ name: name.trim() });
+    await newCategory.save();
+
+    res.status(201).json({ message: "Category created successfully", category: newCategory });
   } catch (error) {
-      console.error("Error creating category:", error.message);
-      res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error creating category:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
