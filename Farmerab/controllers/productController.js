@@ -139,7 +139,7 @@ const createProduct = async (req, res) => {
       name,
       store,
       qtyAvailable,
-      category,
+      categoryId,
       price,
       location,
       description,
