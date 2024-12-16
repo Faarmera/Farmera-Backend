@@ -4,39 +4,6 @@ const Cloudinary = require("../config/cloudinary.js");
 const mongoose = require("mongoose");
 const fs = require("fs");
 
-// const getAllProducts = async (req, res) => {
-//   try {
-//     const { category, minPrice, maxPrice, location } = req.query;
-
-//     const filter = {};
-
-//     if (category) {
-//       filter.category = category;
-//     }
-
-//     if (minPrice || maxPrice) {
-//       filter.price = {};
-//       if (minPrice) {
-//         filter.price.$gte = parseFloat(minPrice);
-//       }
-//       if (maxPrice) {
-//         filter.price.$lte = parseFloat(maxPrice);
-//       }
-//     }
-
-//     if (location) {
-//       filter.location = location;
-//     }
-
-//     const products = await Product.find(filter);
-
-//     res.status(200).json(products);
-//   } catch (error) {
-//     console.error("Error fetching products:", error.message);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// };
-
 const getAllProducts = async (req, res) => {
   try {
     const { category, minPrice, maxPrice, location } = req.query;
@@ -45,11 +12,11 @@ const getAllProducts = async (req, res) => {
 
     if (category) {
       if (mongoose.Types.ObjectId.isValid(category)) {
-        filter.categoryId = category;
+        filter.category = category;
       } else {
         const categoryDoc = await Category.findOne({ name: category });
         if (categoryDoc) {
-          filter.categoryId = categoryDoc._id;
+          filter.category = categoryDoc._id;
         } else {
           return res.status(404).json({ error: "Category not found" });
         }
@@ -66,7 +33,7 @@ const getAllProducts = async (req, res) => {
       filter.location = location;
     }
 
-    const products = await Product.find(filter).populate("categoryId", "name");
+    const products = await Product.find(filter).populate("category", "name");
 
     res.status(200).json(products);
   } catch (error) {
@@ -90,15 +57,15 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ error: "At least one image is required" });
     }
 
-    const { name, store, qtyAvailable, categoryId, price, location, description } = req.body;
-    if (!name || !store || !categoryId || !price || !qtyAvailable || !location) {
+    const { name, store, qtyAvailable, category, price, location, description } = req.body;
+    if (!name || !store || !category || !price || !qtyAvailable || !location) {
       return res.status(400).json({ error: "All fields are required" });
     }
     if (price <= 0 || qtyAvailable < 0) {
       return res.status(400).json({ error: "Invalid price or quantity available" });
     }
 
-    const existingCategory = await Category.findById(categoryId);
+    const existingCategory = await Category.findById(category);
     if (!existingCategory) {
       return res.status(404).json({ error: "Category not found" });
     }
@@ -126,7 +93,7 @@ const createProduct = async (req, res) => {
       name,
       store,
       qtyAvailable,
-      categoryId,
+      category,
       price,
       location,
       description,

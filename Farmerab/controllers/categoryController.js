@@ -25,18 +25,28 @@ const createCategory = async (req, res) => {
 
 
 const getAllCategories = async (req, res) => {
-    try {
-        const categories = await Category.find().populate("Product", "name price description");
-    
-        res.status(200).json({
-          message: "Categories retrieved successfully",
-          categories,
-        });
-      } catch (error) {
-        console.error("Error retrieving categories:", error.message);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
-}
+  try {
+    const categories = await Category.find();
+
+    const categoriesWithProducts = await Promise.all(
+      categories.map(async (category) => {
+        const products = await Product.find({ categoryId: category._id }).select("name price description");
+        return {
+          ...category._doc,
+          products,
+        };
+      })
+    );
+
+    res.status(200).json({
+      message: "Categories retrieved successfully",
+      categories: categoriesWithProducts,
+    });
+  } catch (error) {
+    console.error("Error retrieving categories:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
 const getCategoryById = async (req, res) => {
     try {
