@@ -1,31 +1,23 @@
 const Category = require("../models/Category.js");
 
 const createCategory = async (req, res) => {
-    try {
-        const { name, productId } = req.body;
-    
-        if (!name || !productId) {
-          return res.status(400).json({ error: "Name and productId are required" });
-        }
-    
-        const product = await Product.findById(productId);
-        if (!product) {
-          return res.status(404).json({ error: "Product not found" });
-        }
-    
-        const newCategory = new Category({
-          name,
-          Product: product._id,
-        });
-    
-        await newCategory.save();
-    
-        res.status(201).json({ message: "Category created successfully", category: newCategory });
-      } catch (error) {
-        console.error("Error creating category:", error.message);
-        res.status(500).json({ error: "Internal Server Error" });
+  try {
+      const { name } = req.body;
+
+      if (!name) {
+          return res.status(400).json({ error: "Name is required" });
       }
-}
+
+      const newCategory = new Category({ name });
+      await newCategory.save();
+
+      res.status(201).json({ message: "Category created successfully", category: newCategory });
+  } catch (error) {
+      console.error("Error creating category:", error.message);
+      res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 
 const getAllCategories = async (req, res) => {
     try {
@@ -61,37 +53,68 @@ const getCategoryById = async (req, res) => {
     }
 }
 
+// const updateCategory = async (req, res) => {
+//     try {
+//         const { id } = req.params;
+//         const { name, productId } = req.body;
+    
+//         if (!name && !productId) {
+//           return res.status(400).json({ error: "At least one field (name or productId) is required to update." });
+//         }
+    
+//         const updatedCategory = await Category.findByIdAndUpdate(
+//           id,
+//           {
+//             ...(name && { name }),
+//             ...(productId && { Product: productId }),
+//           },
+//           { new: true }
+//         ).populate("Product", "name price description");
+    
+//         if (!updatedCategory) {
+//           return res.status(404).json({ error: "Category not found" });
+//         }
+    
+//         res.status(200).json({
+//           message: "Category updated successfully",
+//           category: updatedCategory,
+//         });
+//       } catch (error) {
+//         console.error("Error updating category:", error.message);
+//         res.status(500).json({ error: "Internal Server Error" });
+//     }
+// }
+
 const updateCategory = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { name, productId } = req.body;
-    
-        if (!name && !productId) {
-          return res.status(400).json({ error: "At least one field (name or productId) is required to update." });
-        }
-    
-        const updatedCategory = await Category.findByIdAndUpdate(
+  try {
+      const { id } = req.params;
+      const { name } = req.body;
+
+      if (!name) {
+          return res.status(400).json({ error: "Category name is required" });
+      }
+
+      const updatedCategory = await Category.findByIdAndUpdate(
           id,
           {
-            ...(name && { name }),
-            ...(productId && { Product: productId }),
+              ...(name && { name }),
           },
           { new: true }
-        ).populate("Product", "name price description");
-    
-        if (!updatedCategory) {
-          return res.status(404).json({ error: "Category not found" });
-        }
-    
-        res.status(200).json({
-          message: "Category updated successfully",
+      );
+
+      if (!updatedCategory) {
+          return res.status(404).json({ error: "Category not found." });
+      }
+
+      res.status(200).json({
+          message: "Category updated successfully.",
           category: updatedCategory,
-        });
-      } catch (error) {
-        console.error("Error updating category:", error.message);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
-}
+      });
+  } catch (error) {
+      console.error("Error updating category:", error.message);
+      res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
 const deleteCategory = async (req, res) => {
     try {
