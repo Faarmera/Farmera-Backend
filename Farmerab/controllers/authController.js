@@ -6,7 +6,6 @@ const { v4: uuidv4 } = require('uuid');
 const generateTokenAndSetCookie = require("../utils/generateTokenAndSetCookie.js");
 const bcrypt = require("bcryptjs");
 const nodemailer = require('nodemailer')
-const OTP = require("../models/OTP.js")
 const crypto = require("crypto")
 require("dotenv").config();
 const path = require('path');
@@ -493,5 +492,5 @@ const signOut = async (req, res) => {
 };
 
 module.exports = {
-  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendOTP, verifyEmail, resendVerificationEmail
+  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyEmail, resendVerificationEmail
 }
