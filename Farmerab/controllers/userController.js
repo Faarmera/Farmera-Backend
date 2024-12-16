@@ -66,7 +66,7 @@ const updateUserProfile = async (req, res) => {
   }
 }
 
-const getAllUsersProfile = async (req, res) => {
+const getAllProfiles = async (req, res) => {
   try{
     const allUsers = await User.find()
     return res.status(200).json(allUsers)
@@ -74,17 +74,6 @@ const getAllUsersProfile = async (req, res) => {
     console.log("Error in getAllUsers controller: ", error.message);
 		res.status(500).json({ error: error.message });
   }
-
-  // User.find().then((data) => {
-  //   console.log(data);
-
-  //   return res.json({
-  //     message: "List of Users",
-  //     data
-  //   })
-  // }). catch(err => 
-  //   console.log(err)
-  // )
 }
 
-module.exports = { updateUserProfile, getSignedinUserProfile, getUserProfile, getAllUsersProfile };
+module.exports = { updateUserProfile, getSignedinUserProfile, getUserProfile, getAllProfiles };

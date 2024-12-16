@@ -8,6 +8,7 @@ const path = require("path");
 const app = express();
 const bodyParser = require("body-parser")
 const seedRoles = require('../controllers/roleController.js');
+const passport = require('passport');
 
 // Middlewares
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use((req, res, next) => {
 });
 app.use(bodyParser.json({ limit: "30mb" }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
+app.use(passport.initialize());
 
 
 app.get('/', (req, res) => {
