@@ -23,6 +23,11 @@ app.use(bodyParser.json({ limit: "30mb" }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 
 
+app.get('/', (req, res) => {
+  res.send('Welcome to my API!');
+});
+
+
 // Routes
 const authRoutes = require("../routes/authRoute.js");
 const userRoutes = require("../routes/userRoute.js");
