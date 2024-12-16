@@ -45,11 +45,11 @@ const getAllProducts = async (req, res) => {
 
     if (category) {
       if (mongoose.Types.ObjectId.isValid(category)) {
-        filter.category = category;
+        filter.categoryId = category;
       } else {
         const categoryDoc = await Category.findOne({ name: category });
         if (categoryDoc) {
-          filter.category = categoryDoc._id;
+          filter.categoryId = categoryDoc._id;
         } else {
           return res.status(404).json({ error: "Category not found" });
         }
@@ -66,7 +66,7 @@ const getAllProducts = async (req, res) => {
       filter.location = location;
     }
 
-    const products = await Product.find(filter).populate("category", "name");
+    const products = await Product.find(filter).populate("categoryId", "name");
 
     res.status(200).json(products);
   } catch (error) {

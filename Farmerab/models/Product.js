@@ -15,7 +15,7 @@ const productSchema = mongoose.Schema(
       required: true 
     },
     categoryId: { 
-      type: String, 
+      type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true 
     },
@@ -24,8 +24,8 @@ const productSchema = mongoose.Schema(
       required: true 
     },
     location: {
-        type: String,
-        required: true,
+      type: String,
+      required: true,
     },
     description: { 
       type: String, 
@@ -39,10 +39,6 @@ const productSchema = mongoose.Schema(
       type: String,
       required: true 
     }],
-    // productUser: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: "User",
-    // },
   },
   { timestamps: true }
 );
