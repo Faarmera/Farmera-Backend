@@ -1,4 +1,5 @@
 const Product = require("../models/Product.js");
+const Category = require("../models/Category.js")
 const Cloudinary = require("../config/cloudinary.js");
 const fs = require("fs");
 
