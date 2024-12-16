@@ -72,17 +72,19 @@ const resendVerificationEmail = async (req, res) => {
       {
         uniqueString: hashedString,
         createdAt: Date.now(),
-        expiresAt: Date.now() + 2 * 60 * 60 * 1000, // 2 hours
+        expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
       },
       { upsert: true, new: true }
     );
 
     const verificationUrl = `${process.env.BASE_URL}/auth/verify/${user._id}/${uniqueString}`;
     const emailHtml = `
-      <p>Please click the link below to verify your email:</p>
-      <a href="${verificationUrl}">Verify Email</a>
-      <br>
-      <strong>Link expires in 2 hours</strong>
+      <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
+        <a href="${verificationUrl}">Verify Email</a> <br>
+        This link will expire in 30 minutes. <br>
+        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
+        Best, <br>  <br>
+        The Farmera Team</p>
     `;
 
     await sendEmail(email, "Farmera Resend Verification Email", emailHtml);
@@ -304,19 +306,17 @@ const signFarmerUp = async (req, res) => {
         expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
     });
 
-    if (!process.env.BASE_URL) {
-      console.error('BASE_URL is not defined in your environment variables.');
-    }
-
     const verificationUrl = `${process.env.BASE_URL}/auth/verify/${newUser._id}/${uniqueString}`;
     const emailHtml = `
-        <p>Click the link below to verify your email:</p>
-        <a href="${verificationUrl}">Verify Email</a>
-        <br>
-      <strong>Link expires in 30 minutes</strong>
+        <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
+        <a href="${verificationUrl}">Verify Email</a> <br>
+        This link will expire in 30 minutes. <br>
+        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
+        Best, <br>  <br>
+        The Farmera Team</p>
     `;
 
-    await sendEmail(email, 'FARMERA Verification Mail', emailHtml);
+    await sendEmail(email, 'Farmera Verification Mail', emailHtml);
 
     res.status(201).json({
         message: 'User created. Verification email sent.',
@@ -400,9 +400,12 @@ const signBuyerUp = async (req, res) => {
 
     const verificationUrl = `${process.env.BASE_URL}/auth/verify/${newUser._id}/${uniqueString}`;
     const emailHtml = `
-        <p>Click the link below to verify your email:</p>
-        <a href="${verificationUrl}">Verify Email</a>
-        <strong>Link expires in 30 minutes</strong>
+        <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
+        <a href="${verificationUrl}">Verify Email</a> <br>
+        This link will expire in 30 minutes. <br>
+        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
+        Best, <br>  <br>
+        The Farmera Team</p>
     `;
 
     await sendEmail(email, 'FARMERA Verification Mail', emailHtml);

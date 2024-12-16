@@ -1,13 +1,13 @@
 require("dotenv").config();
 const express = require("express");
-const connectDB = require("./config/index.js");
+const connectDB = require("../config/index.js");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const cloudinary = require("cloudinary").v2
 const path = require("path");
 const app = express();
 const bodyParser = require("body-parser")
-const seedRoles = require('./controllers/roleController.js');
+const seedRoles = require('../controllers/roleController.js');
 
 // Middlewares
 app.use(express.json());
@@ -24,13 +24,13 @@ app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 
 
 // Routes
-const authRoutes = require("./routes/authRoute.js");
-const userRoutes = require("./routes/userRoute.js");
-const productRoutes = require("./routes/productRoute.js");
-const cartRoutes = require("./routes/cartRoute.js");
-const categoryRoutes = require("./routes/categoryRoute.js");
-const orderRoutes = require("./routes/orderRoute.js");
-const roleRoutes = require("./routes/roleRoute.js")
+const authRoutes = require("../routes/authRoute.js");
+const userRoutes = require("../routes/userRoute.js");
+const productRoutes = require("../routes/productRoute.js");
+const cartRoutes = require("../routes/cartRoute.js");
+const categoryRoutes = require("../routes/categoryRoute.js");
+const orderRoutes = require("../routes/orderRoute.js");
+const roleRoutes = require("../routes/roleRoute.js")
 
 
 

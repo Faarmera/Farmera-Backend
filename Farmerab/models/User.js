@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["admin", "buyer", "farmer"],
+    enum: ["buyer", "farmer"],
     default: ""
   },
   phonenumber: {
@@ -32,11 +32,9 @@ const userSchema = new mongoose.Schema({
   farmAddress: {
     type: String,
   },
-  state: [
-    // {
-    //   ref: "Farmer"
-    // }
-  ],
+  state: {
+    type:String,
+  },
   password: {
     type: String,
     require: true,
