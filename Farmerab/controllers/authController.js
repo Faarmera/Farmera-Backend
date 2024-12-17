@@ -10,7 +10,6 @@ const crypto = require("crypto")
 require("dotenv").config();
 const path = require('path');
 const Role = require("../models/Role.js")
-const authorize = require('../middlewares/roleCheckMiddleware.js');
 
 
 const verifyEmail = async (req, res) => {

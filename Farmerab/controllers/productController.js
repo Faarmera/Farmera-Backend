@@ -6,21 +6,12 @@ const fs = require("fs");
 
 const getAllProducts = async (req, res) => {
   try {
-    const { category, minPrice, maxPrice, location } = req.query;
+    const { category, minPrice, maxPrice, location, search, page = 1, limit = 10 } = req.query;
 
     const filter = {};
 
     if (category) {
-      if (mongoose.Types.ObjectId.isValid(category)) {
-        filter.category = category;
-      } else {
-        const categoryDoc = await Category.findOne({ name: category });
-        if (categoryDoc) {
-          filter.category = categoryDoc._id;
-        } else {
-          return res.status(404).json({ error: "Category not found" });
-        }
-      }
+      filter.category = category;
     }
 
     if (minPrice || maxPrice) {
@@ -33,9 +24,33 @@ const getAllProducts = async (req, res) => {
       filter.location = location;
     }
 
-    const products = await Product.find(filter).populate("category", "name");
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { store: { $regex: search, $options: 'i' } }
+      ];
+    }
 
-    res.status(200).json(products);
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 },
+      populate: { 
+        path: 'category', 
+        select: 'name' 
+      }
+    };
+
+    const result = await Product.paginate(filter, options);
+
+    res.status(200).json({
+      products: result.docs,
+      totalProducts: result.totalDocs,
+      totalPages: result.totalPages,
+      currentPage: result.page
+    });
+
   } catch (error) {
     console.error("Error fetching products:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
@@ -43,11 +58,21 @@ const getAllProducts = async (req, res) => {
 };
 
 const getProductById = async (req, res) => {
-  const product = await Product.findById(req.params.id);
-  if (product) {
+  try {
+    const product = await Product.findById(req.params.id)
+      .populate({
+        path: 'category',
+        select: 'name'
+      });
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
     res.json(product);
-  } else {
-    res.status(404).json({ message: "Product not found" });
+  } catch (error) {
+    console.error("Error fetching product:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -58,16 +83,19 @@ const createProduct = async (req, res) => {
     }
 
     const { name, store, qtyAvailable, category, price, location, description } = req.body;
-    if (!name || !store || !category || !price || !qtyAvailable || !location) {
+
+    if (!name || !store || !category || !price || !qtyAvailable || !location || !description) {
       return res.status(400).json({ error: "All fields are required" });
     }
+
     if (price <= 0 || qtyAvailable < 0) {
       return res.status(400).json({ error: "Invalid price or quantity available" });
     }
 
-    const existingCategory = await Category.findById(category);
-    if (!existingCategory) {
-      return res.status(404).json({ error: "Category not found" });
+    let categoryDoc = await Category.findOne({ name: category });
+    if (!categoryDoc) {
+      categoryDoc = new Category({ name: category });
+      await categoryDoc.save();
     }
 
     const uploadImages = async (files) => {
@@ -75,11 +103,9 @@ const createProduct = async (req, res) => {
       const imageIds = [];
       for (const file of files) {
         if (!file.path) throw new Error("Invalid file or missing file path");
-
         const result = await Cloudinary.uploader.upload(file.path, { folder: "products" });
         images.push(result.secure_url);
         imageIds.push(result.public_id);
-
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }
@@ -93,18 +119,25 @@ const createProduct = async (req, res) => {
       name,
       store,
       qtyAvailable,
-      category,
+      category: categoryDoc._id,
       price,
       location,
       description,
       images,
       imageIds,
     });
+
     await newProduct.save();
 
-    res.status(201).json({ message: "Product created successfully", product: newProduct });
+    categoryDoc.products.push(newProduct._id);
+    await categoryDoc.save();
+
+    res.status(201).json({ 
+      message: "Product created successfully", 
+      product: newProduct 
+    });
   } catch (error) {
-    console.error("Error creatingProduct controller:", error.message);
+    console.error("Error creating Product:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };

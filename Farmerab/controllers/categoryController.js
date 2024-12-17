@@ -1,105 +1,82 @@
 const Category = require("../models/Category.js");
 const Product = require("../models/Product.js")
+const mongoose = require("mongoose")
 
 const createCategory = async (req, res) => {
   try {
     const { name } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: "Name is required" });
-    }
-
-    const existingCategory = await Category.findOne({ name: name.trim() });
+    
+    const existingCategory = await Category.findOne({ name });
     if (existingCategory) {
-      return res.status(409).json({ error: "Category already exists" });
+      return res.status(400).json({ message: "Category already exists" });
     }
 
-    const newCategory = new Category({ name: name.trim() });
+    const newCategory = new Category({ name });
     await newCategory.save();
 
-    res.status(201).json({ message: "Category created successfully", category: newCategory });
+    res.status(201).json({ 
+      message: "Category created successfully", 
+      category: newCategory 
+    });
   } catch (error) {
-    console.error("Error creating category:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error creating category:", error);
+    res.status(500).json({ message: "Error creating category", error: error.message });
   }
 };
 
-
 const getAllCategories = async (req, res) => {
   try {
-    const categories = await Category.find();
-
-    const categoriesWithProducts = await Promise.all(
-      categories.map(async (category) => {
-        const products = await Product.find({ categoryId: category._id }).select("name price description");
-        return {
-          ...category._doc,
-          products,
-        };
-      })
-    );
-
-    res.status(200).json({
-      message: "Categories retrieved successfully",
-      categories: categoriesWithProducts,
+    const categories = await Category.find().populate({
+      path: 'products',
+      model: 'Product',
+      populate: {
+        path: 'category',
+        model: 'Category',
+        select: 'name'
+      }
     });
+
+    if (!categories || categories.length === 0) {
+      return res.status(404).json({ message: "No categories found" });
+    }
+    
+    res.status(200).json(categories);
   } catch (error) {
-    console.error("Error retrieving categories:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error in getAllCategories:", error);
+    res.status(500).json({
+      message: "Error retrieving categories",
+      error: error.message
+    });
   }
 };
 
 const getCategoryById = async (req, res) => {
-    try {
-        const { id } = req.params;
-    
-        const category = await Category.findById(id).populate("Product", "name price description");
-    
-        if (!category) {
-          return res.status(404).json({ error: "Category not found" });
+  try {
+    const { id } = req.params;
+    const category = await Category.findById(id)
+      .populate({
+        path: 'products',
+        model: 'Product',
+        populate: {
+          path: 'category',
+          model: 'Category',
+          select: 'name'
         }
-    
-        res.status(200).json({
-          message: "Category retrieved successfully",
-          category,
-        });
-      } catch (error) {
-        console.error("Error retrieving category:", error.message);
-        res.status(500).json({ error: "Internal Server Error" });
-    }
-}
+      });
 
-// const updateCategory = async (req, res) => {
-//     try {
-//         const { id } = req.params;
-//         const { name, productId } = req.body;
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
     
-//         if (!name && !productId) {
-//           return res.status(400).json({ error: "At least one field (name or productId) is required to update." });
-//         }
-    
-//         const updatedCategory = await Category.findByIdAndUpdate(
-//           id,
-//           {
-//             ...(name && { name }),
-//             ...(productId && { Product: productId }),
-//           },
-//           { new: true }
-//         ).populate("Product", "name price description");
-    
-//         if (!updatedCategory) {
-//           return res.status(404).json({ error: "Category not found" });
-//         }
-    
-//         res.status(200).json({
-//           message: "Category updated successfully",
-//           category: updatedCategory,
-//         });
-//       } catch (error) {
-//         console.error("Error updating category:", error.message);
-//         res.status(500).json({ error: "Internal Server Error" });
-//     }
-// }
+    res.status(200).json(category);
+  } catch (error) {
+    console.error("Error in getCategoryById:", error);
+    res.status(500).json({
+      message: "Error retrieving category",
+      error: error.message
+    });
+  }
+};
 
 const updateCategory = async (req, res) => {
   try {
