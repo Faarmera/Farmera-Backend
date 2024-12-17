@@ -1,4 +1,5 @@
 const Cart = require("../models/Cart.js");
+const Product = require("../models/Product.js")
 
 const getUserCart = async (req, res) => {
   try {
@@ -64,6 +65,111 @@ const addToCart = async (req, res) => {
   }
 };
 
+const decreaseProductFromCart = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { productId } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
+    const cart = await Cart.findOne({ user: userId });
+    if (!cart) {
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    const itemIndex = cart.cartItems.findIndex(
+      (item) => item.product.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: "Product not found in cart" });
+    }
+
+    const cartItem = cart.cartItems[itemIndex];
+    cartItem.quantity -= 1;
+
+    if (cartItem.quantity <= 0) {
+      cart.cartItems.splice(itemIndex, 1);
+    } else {
+      const product = await Product.findById(productId);
+      cartItem.Price = cartItem.quantity * product.price;
+    }
+
+    await cart.save();
+
+    res.status(200).json({
+      message: "1 unit removed from the product in cart successfully",
+      cart,
+    });
+  } catch (error) {
+    console.error("Error decreasing cart item quantity:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const deleteProductFromCart = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { productId } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
+    const cart = await Cart.findOne({ user: userId });
+    if (!cart) {
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    const itemIndex = cart.cartItems.findIndex(
+      (item) => item.product.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: "Product not found in cart" });
+    }
+
+    cart.cartItems.splice(itemIndex, 1);
+
+    await cart.save();
+
+    res.status(200).json({
+      message: "Product removed from cart successfully",
+      cart,
+    });
+  } catch (error) {
+    console.error("Error removing product from cart:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const clearCart = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    let cart = await Cart.findOne({ user: userId });
+
+    if (!cart) {
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    cart.cartItems = [];
+
+    await cart.save();
+
+    res.status(200).json({
+      message: "Cart cleared successfully",
+      cart,
+    });
+  } catch (error) {
+    console.error("Error clearing cart:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
 const getAllCarts = async  (req, res ) => {
   try {
     const carts = await Cart.find()
@@ -81,37 +187,4 @@ const getAllCarts = async  (req, res ) => {
   }
 };
 
-const deleteFromCart = async (req, res) => {
-  try {
-    const { cartId, productId } = req.params;
-
-    if (!cartId || !productId) {
-      return res.status(400).json({ error: "cartId and productId are required" });
-    }
-
-    const cart = await Cart.findById(cartId);
-
-    if (!cart) {
-      return res.status(404).json({ error: "Cart not found" });
-    }
-
-    const updatedCartItems = cart.cartItems.filter(
-      (item) => item.product.toString() !== productId
-    );
-
-    if (updatedCartItems.length === cart.cartItems.length) {
-      return res.status(404).json({ error: "Product not found in the cart" });
-    }
-
-    cart.cartItems = updatedCartItems;
-
-    await cart.save();
-
-    res.status(200).json({ message: "Product removed from cart", cart });
-  } catch (error) {
-    console.error("Error deleting product from cart:", error.message);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-module.exports = { getUserCart, getAllCarts, addToCart, deleteFromCart };
+module.exports = { getUserCart, getAllCarts, addToCart, deleteProductFromCart,  decreaseProductFromCart, clearCart  };
