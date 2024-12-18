@@ -13,7 +13,12 @@ const productSchema = mongoose.Schema(
     },
     qtyAvailable: { 
       type: Number, 
-      required: true 
+      required: true, 
+      default: 0,
+      validate: {
+        validator: Number.isFinite,
+        message: "qtyAvailable must be a valid number.",
+      }
     },
     category: { 
       type: mongoose.Schema.Types.ObjectId,

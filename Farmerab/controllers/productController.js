@@ -92,10 +92,9 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ error: "Invalid price or quantity available" });
     }
 
-    let categoryDoc = await Category.findOne({ name: category });
+    const categoryDoc = await Category.findOne({ name: category });
     if (!categoryDoc) {
-      categoryDoc = new Category({ name: category });
-      await categoryDoc.save();
+      return res.status(400).json({ error: "Category does not exist. Create the category first." });
     }
 
     const uploadImages = async (files) => {
@@ -132,9 +131,9 @@ const createProduct = async (req, res) => {
     categoryDoc.products.push(newProduct._id);
     await categoryDoc.save();
 
-    res.status(201).json({ 
-      message: "Product created successfully", 
-      product: newProduct 
+    res.status(201).json({
+      message: "Product created successfully",
+      product: newProduct,
     });
   } catch (error) {
     console.error("Error creating Product:", error.message);

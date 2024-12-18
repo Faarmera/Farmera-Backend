@@ -2,67 +2,68 @@ const mongoose = require("mongoose");
 
 const orderSchema = mongoose.Schema(
   {
-    user: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "User", 
-      required: true 
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     orderItems: [
       {
-        product: { 
+        product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
-          required: true
+          required: true,
         },
-        qty: { 
-          type: Number, 
-          required: true 
+        qty: {
+          type: Number,
+          required: true,
         },
-        price: { 
-          type: Number, 
-          required: true 
+        price: {
+          type: Number,
+          required: true,
         },
+        isReturned: {
+          type: Boolean,
+          default: false,
+        },
+        returnedAt: Date,
       },
     ],
-    shippingAddress: { 
-      type: String, 
-      required: true 
+    shippingAddress: {
+      type: String,
+      required: true,
     },
-    totalPrice: { 
-      type: Number, 
-      required: true 
+    totalPrice: {
+      type: Number,
+      required: true,
     },
-    isPaid: { 
-      type: Boolean, 
+    isPaid: {
+      type: Boolean,
       default: false,
     },
     paidAt: Date,
-      paidBy: {
+    paidBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: "User",
     },
-    isReturned: { 
-      type: Boolean, 
-      default: false 
+    isReturned: {
+      type: Boolean,
+      default: false,
     },
     returnedAt: Date,
-      returnedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    isCancelled: { 
-      type: Boolean, 
-      default: false 
+    isCancelled: {
+      type: Boolean,
+      default: false,
     },
     cancelledAt: Date,
-      cancelledBy: {
+    cancelledBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: "User",
     },
     isShipped: {
       type: Boolean,
       default: false,
-    }
+    },
   },
   { timestamps: true }
 );

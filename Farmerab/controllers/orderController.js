@@ -140,71 +140,73 @@ const getAllOrders = async (req, res) => {
   }
 };
 
-const getUserOrder = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { page = 1, limit = 10, isPaid, isShipped, isReturned, isCancelled, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query;
-
-    const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.max(1, Math.min(parseInt(limit), 100)); // Max limit of 100
-
-    const userExists = await User.findById(userId);
-    if (!userExists) {
-      return res.status(404).json({ message: "User not found." });
-    }
-
-    const filter = { user: userId };
-    
-    if (isPaid !== undefined) filter.isPaid = isPaid === "true";
-    if (isShipped !== undefined) filter.isShipped = isShipped === "true";
-    if (isReturned !== undefined) filter.isReturned = isReturned === "true";
-    if (isCancelled !== undefined) filter.isCancelled = isCancelled === "true";
-
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
-    }
-
-    if (minTotal || maxTotal) {
-      filter.totalPrice = {};
-      if (minTotal) filter.totalPrice.$gte = parseFloat(minTotal);
-      if (maxTotal) filter.totalPrice.$lte = parseFloat(maxTotal);
-    }
-
-    const userOrders = await Order.find(filter)
-      .populate("user", "name email")
-      .populate({
-        path: 'orderItems.product',
-        select: 'name price'
-      })
-      .sort(sort)
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum);
-
-    const totalOrders = await Order.countDocuments(filter);
-
-    if (userOrders.length === 0) {
-      return res.status(404).json({ message: "No orders found for this user." });
-    }
-
-    res.status(200).json({
-      message: "User orders retrieved successfully.",
-      totalOrders,
-      currentPage: pageNum,
-      totalPages: Math.ceil(totalOrders / limitNum),
-      pageSize: limitNum,
-      orders: userOrders,
-    });
-  } catch (error) {
-    console.error("Error retrieving user orders:", error.message);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({ error: "Invalid query parameter." });
-    }
-
-    res.status(500).json({ error: "Internal server error." });
-  }
+const getUserOrder = async (req, res) => { 
+  try { 
+    const { userId } = req.params; 
+    const { page = 1, limit = 10, isPaid, isShipped, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query; 
+ 
+    const pageNum = Math.max(1, parseInt(page)); 
+    const limitNum = Math.max(1, Math.min(parseInt(limit), 100)); // Max limit of 100 
+ 
+    const userExists = await User.findById(userId); 
+    if (!userExists) { 
+      return res.status(404).json({ message: "User not found." }); 
+    } 
+ 
+    const filter = { 
+      user: userId,
+      isReturned: false,
+      isCancelled: false
+    }; 
+     
+    if (isPaid !== undefined) filter.isPaid = isPaid === "true"; 
+    if (isShipped !== undefined) filter.isShipped = isShipped === "true"; 
+ 
+    if (startDate || endDate) { 
+      filter.createdAt = {}; 
+      if (startDate) filter.createdAt.$gte = new Date(startDate); 
+      if (endDate) filter.createdAt.$lte = new Date(endDate); 
+    } 
+ 
+    if (minTotal || maxTotal) { 
+      filter.totalPrice = {}; 
+      if (minTotal) filter.totalPrice.$gte = parseFloat(minTotal); 
+      if (maxTotal) filter.totalPrice.$lte = parseFloat(maxTotal); 
+    } 
+ 
+    const userOrders = await Order.find(filter) 
+      .populate("user", "name email") 
+      .populate({ 
+        path: 'orderItems.product', 
+        select: 'name price' 
+      }) 
+      .sort(sort) 
+      .skip((pageNum - 1) * limitNum) 
+      .limit(limitNum); 
+ 
+    const totalOrders = await Order.countDocuments(filter); 
+ 
+    if (userOrders.length === 0) { 
+      return res.status(404).json({ message: "No order at the moment." }); 
+    } 
+ 
+    res.status(200).json({ 
+      message: "User order retrieved successfully.", 
+      totalOrders, 
+      currentPage: pageNum, 
+      totalPages: Math.ceil(totalOrders / limitNum), 
+      pageSize: limitNum, 
+      orders: userOrders, 
+    }); 
+  } catch (error) { 
+    console.error("Error retrieving user orders:", error.message); 
+     
+    if (error.name === 'CastError') { 
+      return res.status(400).json({ error: "Invalid query parameter." }); 
+    } 
+ 
+    res.status(500).json({ error: "Internal server error." }); 
+  } 
 };
 
 const getOrderById = async (req, res) => {
@@ -229,57 +231,59 @@ const getOrderById = async (req, res) => {
   }
 };
 
-const returnOrder = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
+const returnProductFromOrder = async (req, res) => {
   try {
-    const { orderId } = req.params;
-    const userId = req.user._id;
+    const { orderId, orderedItemId } = req.params;
 
-    const order = await Order.findById(orderId).session(session);
-
+    const order = await Order.findById(orderId).populate("orderItems.product");
     if (!order) {
-      return res.status(404).json({ message: "Order not found." });
+      return res.status(404).json({ error: "Order not found" });
     }
 
-    if (order.isReturned) {
-      return res
-        .status(400)
-        .json({ message: "Order has already been marked as returned." });
+    const orderedItem = order.orderItems.find((item) => item._id.toString() === orderedItemId);
+    if (!orderedItem) {
+      return res.status(404).json({ error: "Ordered item not found" });
     }
 
-    if (order.isShipped && !isWithinReturnWindow(order.createdAt)) {
-      return res
-        .status(400)
-        .json({ message: "Order is not eligible for return." });
+    if (orderedItem.isReturned) {
+      return res.status(400).json({ error: "Item has already been returned" });
     }
 
-    order.isReturned = true;
-    order.returnedAt = new Date();
-    order.returnedBy = userId;
+    const returnWindowDays = 7;
+    const returnDeadline = new Date(order.createdAt);
+    returnDeadline.setDate(returnDeadline.getDate() + returnWindowDays);
+    const now = new Date();
 
-    for (const item of order.orderItems) {
-      const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.qtyAvailable += item.quantity;
-        await product.save({ session });
-      }
+    if (now > returnDeadline) {
+      return res.status(400).json({
+        error: `Return period expired. You can only return items within ${returnWindowDays} days.`,
+      });
     }
 
-    await order.save({ session });
-    await session.commitTransaction();
+    orderedItem.isReturned = true;
+    orderedItem.returnedAt = new Date();
+
+    order.totalPrice -= orderedItem.qty * orderedItem.price;
+
+    const product = orderedItem.product;
+    product.qtyAvailable += orderedItem.qty;
+    await product.save();
+
+    const allItemsReturned = order.orderItems.every((item) => item.isReturned);
+    if (allItemsReturned) {
+      order.isReturned = true;
+      order.returnedAt = new Date();
+    }
+
+    await order.save();
 
     res.status(200).json({
-      message: "Order has been successfully marked as returned.",
+      message: "Ordered item returned successfully",
       order,
     });
   } catch (error) {
-    await session.abortTransaction();
-    console.error("Error returning order:", error.message);
-    res.status(500).json({ error: "Internal server error." });
-  } finally {
-    session.endSession();
+    console.error("Error returning ordered item:", error.message);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
@@ -312,7 +316,7 @@ const cancelOrder = async (req, res) => {
     if (order.isShipped) {
       return res
         .status(400)
-        .json({ message: "Shipped orders cannot be canceled." });
+        .json({ message: "Shipped orders cannot be canceled. You can return within 7 days after it has reached the designated pickup point" });
     }
 
     if (!isWithinCancellationWindow(order.createdAt)) {
@@ -327,10 +331,29 @@ const cancelOrder = async (req, res) => {
 
     for (const item of order.orderItems) {
       const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.qtyAvailable += item.quantity;
-        await product.save({ session });
+
+      if (!product) {
+        console.warn(`Product with ID ${item.product} not found.`);
+        continue;
       }
+
+      if (typeof product.qtyAvailable !== "number") {
+        console.warn(
+          `Product with ID ${item.product} has an invalid qtyAvailable value: ${product.qtyAvailable}`
+        );
+        continue;
+      }
+
+      const qtyToAdd = item.qty || 0;
+      if (typeof qtyToAdd !== "number" || qtyToAdd < 0) {
+        console.warn(
+          `Invalid quantity for product ID ${item.product}: ${qtyToAdd}`
+        );
+        continue;
+      }
+
+      product.qtyAvailable += qtyToAdd;
+      await product.save({ session });
     }
 
     await order.save({ session });
@@ -360,4 +383,4 @@ function isWithinCancellationWindow(orderDate) {
 }
 
 
-module.exports = { createOrder, getAllOrders, getOrderById, getUserOrder, returnOrder, cancelOrder  };
+module.exports = { createOrder, getAllOrders, getOrderById, getUserOrder, returnProductFromOrder, cancelOrder  };

@@ -5,7 +5,7 @@ const categorySchema = mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
+      unique: true, // Ensure category names are unique
     },
     products: [{
       type: mongoose.Schema.Types.ObjectId,
