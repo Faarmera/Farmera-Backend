@@ -1,11 +1,13 @@
 const Cart = require("../models/Cart.js");
 const Product = require("../models/Product.js")
+const User = require("../models/User.js")
+const mongoose = require('mongoose');
 
 const getUserCart = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const cart = await Cart.findOne({ user: userId }).populate("cartItems.product", "name price description");
+    const cart = await Cart.findOne({ user: userId }).populate("cartItems.product");
 
     if (!cart) {
       return res.status(404).json({ error: "Cart not found" });
@@ -19,53 +21,103 @@ const getUserCart = async (req, res) => {
 };
 
 const addToCart = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userId = req.user._id;
-    const { productId, quantity } = req.body;
+    const { products } = req.body;
 
-    if (!productId || !quantity) {
-      return res.status(400).json({ error: "Product ID and quantity are required" });
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: "No products provided to add to cart." });
     }
 
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
-
-    let cart = await Cart.findOne({ user: userId });
+    let cart = await Cart.findOne({ user: userId }).session(session);
 
     if (!cart) {
       cart = new Cart({
         user: userId,
         cartItems: [],
+        totalBill: 0,
       });
     }
 
-    const existingCartItem = cart.cartItems.find(
-      (item) => item.product.toString() === productId
-    );
+    let totalBill = cart.totalBill;
+    const errorMessages = [];
 
-    if (existingCartItem) {
-      existingCartItem.quantity += quantity;
-      existingCartItem.Price = existingCartItem.quantity * product.price;
-    } else {
-      cart.cartItems.push({
-        product: productId,
-        quantity,
-        Price: quantity * product.price,
-      });
+    for (const productItem of products) {
+      const { productId, quantity } = productItem;
+
+      if (!productId || quantity <= 0) {
+        await session.abortTransaction();
+        return res.status(400).json({ error: "Valid product ID and quantity are required." });
+      }
+
+      const foundProduct = await Product.findById(productId).session(session);
+      if (!foundProduct) {
+        errorMessages.push(`Product with ID ${productId} does not exist.`);
+        continue;
+      }
+
+      if (quantity > foundProduct.qtyAvailable) {
+        errorMessages.push(
+          `Product with ID ${productId} is out of stock. Only ${foundProduct.qtyAvailable} units available.`
+        );
+        continue;
+      }
+
+      foundProduct.qtyAvailable -= quantity;
+      await foundProduct.save({ session });
+
+      const productBill = foundProduct.price * quantity;
+
+      const existingCartItem = cart.cartItems.find(
+        (cartItem) => cartItem.product.toString() === productId
+      );
+
+      if (existingCartItem) {
+        existingCartItem.quantity += quantity;
+        existingCartItem.price = existingCartItem.quantity * foundProduct.price;
+      } else {
+        cart.cartItems.push({
+          product: productId,
+          quantity,
+          price: productBill,
+        });
+      }
+
+      // Update total bill
+      totalBill += productBill;
     }
 
-    await cart.save();
+    cart.totalBill = totalBill;
+    await cart.save({ session });
 
-    res.status(200).json({ message: "Product added to cart successfully", cart });
+    if (errorMessages.length > 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ error: "Some items could not be added.", details: errorMessages });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      message: "Items added to cart successfully.",
+      cart,
+    });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Error adding to cart:", error.message);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "An error occurred while adding items to the cart." });
   }
 };
 
 const decreaseProductFromCart = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userId = req.user._id;
     const { productId } = req.body;
@@ -74,7 +126,8 @@ const decreaseProductFromCart = async (req, res) => {
       return res.status(400).json({ error: "Product ID is required" });
     }
 
-    const cart = await Cart.findOne({ user: userId });
+    const cart = await Cart.findOne({ user: userId }).session(session);
+
     if (!cart) {
       return res.status(404).json({ error: "Cart not found" });
     }
@@ -88,28 +141,48 @@ const decreaseProductFromCart = async (req, res) => {
     }
 
     const cartItem = cart.cartItems[itemIndex];
+    const product = await Product.findById(productId).session(session);
+
+    if (!product) {
+      await session.abortTransaction();
+      return res.status(404).json({ error: "Product not found" });
+    }
+
     cartItem.quantity -= 1;
 
     if (cartItem.quantity <= 0) {
       cart.cartItems.splice(itemIndex, 1);
     } else {
-      const product = await Product.findById(productId);
-      cartItem.Price = cartItem.quantity * product.price;
+      cartItem.price = cartItem.quantity * product.price;
     }
 
-    await cart.save();
+    cart.totalBill = cart.cartItems.reduce((total, item) => total + item.price, 0);
+
+    product.qtyAvailable += 1;
+    await product.save({ session });
+
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({
       message: "1 unit removed from the product in cart successfully",
       cart,
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Error decreasing cart item quantity:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
 
 const deleteProductFromCart = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userId = req.user._id;
     const { productId } = req.body;
@@ -118,7 +191,7 @@ const deleteProductFromCart = async (req, res) => {
       return res.status(400).json({ error: "Product ID is required" });
     }
 
-    const cart = await Cart.findOne({ user: userId });
+    const cart = await Cart.findOne({ user: userId }).session(session);
     if (!cart) {
       return res.status(404).json({ error: "Cart not found" });
     }
@@ -131,15 +204,34 @@ const deleteProductFromCart = async (req, res) => {
       return res.status(404).json({ error: "Product not found in cart" });
     }
 
+    const cartItemToRemove = cart.cartItems[itemIndex];
+    
+    const product = await Product.findById(productId).session(session);
+    if (!product) {
+      await session.abortTransaction();
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    product.qtyAvailable += cartItemToRemove.quantity;
+    await product.save({ session });
+
     cart.cartItems.splice(itemIndex, 1);
 
-    await cart.save();
+    cart.totalBill = cart.cartItems.reduce((total, item) => total + item.price, 0);
+
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
 
     res.status(200).json({
       message: "Product removed from cart successfully",
       cart,
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
     console.error("Error removing product from cart:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
@@ -169,12 +261,11 @@ const clearCart = async (req, res) => {
   }
 };
 
-
 const getAllCarts = async  (req, res ) => {
   try {
     const carts = await Cart.find()
-      .populate("user", "name email")
-      .populate("cartItems.product", "name price");
+      .populate("user", "-password")
+      .populate("cartItems.product");
 
     if (!carts || carts.length === 0) {
       return res.status(404).json({ message: "No carts found" });

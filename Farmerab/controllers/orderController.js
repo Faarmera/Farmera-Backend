@@ -1,69 +1,219 @@
 const Order = require("../models/Order.js");
+const Cart = require("../models/Cart.js");
+const Product = require("../models/Product.js")
+const mongoose = require("mongoose");
+const User = require("../models/User.js")
 
 const createOrder = async (req, res) => {
-   try {
-    const { orderItems, shippingAddress, totalPrice } = req.body;
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-    if (!orderItems || orderItems.length === 0) {
-      return res.status(400).json({ error: "Order items are required." });
-    }
-    if (!shippingAddress) {
-      return res.status(400).json({ error: "Shipping address is required." });
-    }
-    if (!totalPrice || totalPrice <= 0) {
-      return res.status(400).json({ error: "Total price must be greater than 0." });
+  try {
+    const userId = req.user._id; 
+
+    const cart = await Cart.findOne({ user: userId }).populate("cartItems.product").session(session);
+    
+    if (!cart || cart.cartItems.length === 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ error: "Your cart is empty." });
     }
 
-    const user = req.user._id;
+    const orderItems = [];
+    const errorMessages = [];
+
+    for (const cartItem of cart.cartItems) {
+      const product = cartItem.product;
+      
+      const currentProduct = await Product.findById(product._id).session(session);
+      
+      if (!currentProduct || currentProduct.qtyAvailable < cartItem.quantity) {
+        errorMessages.push(`Insufficient stock for product: ${product.name}. Only ${currentProduct?.qtyAvailable || 0} available.`);
+        continue;
+      }
+
+      currentProduct.qtyAvailable -= cartItem.quantity;
+      await currentProduct.save({ session });
+
+      orderItems.push({
+        name: product.name,
+        qty: cartItem.quantity,
+        price: product.price,
+        product: product._id,
+      });
+    }
+
+    if (errorMessages.length > 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ 
+        error: "Some items could not be processed", 
+        details: errorMessages 
+      });
+    }
+
+    const totalPrice = orderItems.reduce((acc, item) => acc + item.qty * item.price, 0);
 
     const newOrder = new Order({
-      user,
-      orderItems: orderItems.map(item => ({
-        name: item.name,
-        qty: item.qty,
-        price: item.price,
-      })),
-      shippingAddress,
+      user: userId,
+      orderItems,
+      shippingAddress: req.body.shippingAddress,
       totalPrice,
     });
 
-    await newOrder.save();
+    await newOrder.save({ session });
+
+    cart.cartItems = [];
+    cart.totalBill = 0;
+    await cart.save({ session });
+
+    await session.commitTransaction();
 
     res.status(201).json({
       message: "Order created successfully.",
       order: newOrder,
     });
   } catch (error) {
+    await session.abortTransaction();
+    
     console.error("Error creating order:", error.message);
     res.status(500).json({ error: "Internal server error." });
+  } finally {
+    session.endSession();
   }
 };
 
 const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find({})
+    const { page = 1, limit = 10, isPaid, isShipped, isReturned, isCancelled, user, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.max(1, Math.min(parseInt(limit), 100));
+
+    const filter = {};
+
+    if (isPaid !== undefined) filter.isPaid = isPaid === "true";
+    if (isShipped !== undefined) filter.isShipped = isShipped === "true";
+    if (isReturned !== undefined) filter.isReturned = isReturned === "true";
+    if (isCancelled !== undefined) filter.isCancelled = isCancelled === "true";
+
+    if (user) filter.user = user;
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    if (minTotal || maxTotal) {
+      filter.totalPrice = {};
+      if (minTotal) filter.totalPrice.$gte = parseFloat(minTotal);
+      if (maxTotal) filter.totalPrice.$lte = parseFloat(maxTotal);
+    }
+
+    const orders = await Order.find(filter)
       .populate("user", "name email")
-      .sort({ createdAt: -1 });
+      .sort(sort)
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
+
+    const totalOrders = await Order.countDocuments(filter);
 
     if (!orders || orders.length === 0) {
-      return res.status(404).json({ message: "No orders found." });
+      return res.status(404).json({ message: "No orders found for the given criteria." });
     }
 
     res.status(200).json({
       message: "Orders retrieved successfully.",
+      totalOrders,
+      currentPage: pageNum,
+      totalPages: Math.ceil(totalOrders / limitNum),
+      pageSize: limitNum,
       orders,
     });
   } catch (error) {
     console.error("Error fetching orders:", error.message);
+
+    if (error.name === 'CastError') {
+      return res.status(400).json({ error: "Invalid query parameter." });
+    }
+
     res.status(500).json({ error: "Internal server error." });
   }
-}
+};
+
+const getUserOrder = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { page = 1, limit = 10, isPaid, isShipped, isReturned, isCancelled, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.max(1, Math.min(parseInt(limit), 100)); // Max limit of 100
+
+    const userExists = await User.findById(userId);
+    if (!userExists) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const filter = { user: userId };
+    
+    if (isPaid !== undefined) filter.isPaid = isPaid === "true";
+    if (isShipped !== undefined) filter.isShipped = isShipped === "true";
+    if (isReturned !== undefined) filter.isReturned = isReturned === "true";
+    if (isCancelled !== undefined) filter.isCancelled = isCancelled === "true";
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    if (minTotal || maxTotal) {
+      filter.totalPrice = {};
+      if (minTotal) filter.totalPrice.$gte = parseFloat(minTotal);
+      if (maxTotal) filter.totalPrice.$lte = parseFloat(maxTotal);
+    }
+
+    const userOrders = await Order.find(filter)
+      .populate("user", "name email")
+      .populate({
+        path: 'orderItems.product',
+        select: 'name price'
+      })
+      .sort(sort)
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum);
+
+    const totalOrders = await Order.countDocuments(filter);
+
+    if (userOrders.length === 0) {
+      return res.status(404).json({ message: "No orders found for this user." });
+    }
+
+    res.status(200).json({
+      message: "User orders retrieved successfully.",
+      totalOrders,
+      currentPage: pageNum,
+      totalPages: Math.ceil(totalOrders / limitNum),
+      pageSize: limitNum,
+      orders: userOrders,
+    });
+  } catch (error) {
+    console.error("Error retrieving user orders:", error.message);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({ error: "Invalid query parameter." });
+    }
+
+    res.status(500).json({ error: "Internal server error." });
+  }
+};
 
 const getOrderById = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { orderId } = req.params;
 
-    const order = await Order.findById(id).populate('user', 'name email');
+    const order = await Order.findById(orderId)
+      .populate("user", "name email") 
+      .populate("orderItems.product", "name price description");
 
     if (!order) {
       return res.status(404).json({ error: "Order not found." });
@@ -77,33 +227,17 @@ const getOrderById = async (req, res) => {
     console.error("Error retrieving order:", error.message);
     res.status(500).json({ error: "Internal server error." });
   }
-}
-
-const getUserOrders = async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    const userOrders = await Order.find({ user: userId });
-
-    if (userOrders.length === 0) {
-      return res.status(404).json({ message: "No orders found for this user." });
-    }
-
-    res.status(200).json({
-      message: "User orders retrieved successfully.",
-      orders: userOrders,
-    });
-  } catch (error) {
-    console.error("Error retrieving user orders:", error.message);
-    res.status(500).json({ error: "Internal server error." });
-  }
 };
 
 const returnOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { orderId } = req.params;
+    const userId = req.user._id;
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).session(session);
 
     if (!order) {
       return res.status(404).json({ message: "Order not found." });
@@ -115,24 +249,49 @@ const returnOrder = async (req, res) => {
         .json({ message: "Order has already been marked as returned." });
     }
 
+    if (order.isShipped && !isWithinReturnWindow(order.createdAt)) {
+      return res
+        .status(400)
+        .json({ message: "Order is not eligible for return." });
+    }
+
     order.isReturned = true;
-    await order.save();
+    order.returnedAt = new Date();
+    order.returnedBy = userId;
+
+    for (const item of order.orderItems) {
+      const product = await Product.findById(item.product).session(session);
+      if (product) {
+        product.qtyAvailable += item.quantity;
+        await product.save({ session });
+      }
+    }
+
+    await order.save({ session });
+    await session.commitTransaction();
 
     res.status(200).json({
       message: "Order has been successfully marked as returned.",
       order,
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("Error returning order:", error.message);
     res.status(500).json({ error: "Internal server error." });
+  } finally {
+    session.endSession();
   }
-}
+};
 
 const cancelOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { orderId } = req.params;
+    const userId = req.user._id;
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).session(session);
 
     if (!order) {
       return res.status(404).json({ message: "Order not found." });
@@ -156,19 +315,49 @@ const cancelOrder = async (req, res) => {
         .json({ message: "Shipped orders cannot be canceled." });
     }
 
+    if (!isWithinCancellationWindow(order.createdAt)) {
+      return res
+        .status(400)
+        .json({ message: "Order is no longer eligible for cancellation." });
+    }
+
     order.isCancelled = true;
-    await order.save();
+    order.cancelledAt = new Date();
+    order.cancelledBy = userId;
+
+    for (const item of order.orderItems) {
+      const product = await Product.findById(item.product).session(session);
+      if (product) {
+        product.qtyAvailable += item.quantity;
+        await product.save({ session });
+      }
+    }
+
+    await order.save({ session });
+    await session.commitTransaction();
 
     res.status(200).json({
       message: "Order has been successfully canceled.",
       order,
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("Error canceling order:", error.message);
     res.status(500).json({ error: "Internal server error." });
+  } finally {
+    session.endSession();
   }
+};
+
+function isWithinReturnWindow(orderDate) {
+  const returnWindow = 7 * 24 * 60 * 60 * 1000;
+  return (Date.now() - new Date(orderDate).getTime()) <= returnWindow;
+}
+
+function isWithinCancellationWindow(orderDate) {
+  const cancellationWindow = 24 * 60 * 60 * 1000;
+  return (Date.now() - new Date(orderDate).getTime()) <= cancellationWindow;
 }
 
 
-
-module.exports = { createOrder, getAllOrders, getOrderById, getUserOrders, returnOrder, cancelOrder  };
+module.exports = { createOrder, getAllOrders, getOrderById, getUserOrder, returnOrder, cancelOrder  };

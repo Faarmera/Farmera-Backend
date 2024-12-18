@@ -9,9 +9,10 @@ const orderSchema = mongoose.Schema(
     },
     orderItems: [
       {
-        name: { 
-          type: String, 
-          required: true 
+        product: { 
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true
         },
         qty: { 
           type: Number, 
@@ -35,20 +36,35 @@ const orderSchema = mongoose.Schema(
       type: Boolean, 
       default: false,
     },
+    paidAt: Date,
+      paidBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
     isReturned: { 
       type: Boolean, 
       default: false 
     },
+    returnedAt: Date,
+      returnedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
     isCancelled: { 
       type: Boolean, 
       default: false 
+    },
+    cancelledAt: Date,
+      cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
     },
     isShipped: {
       type: Boolean,
       default: false,
     }
   },
-    { timestamps: true }
+  { timestamps: true }
 );
 
 const Order = mongoose.model("Order", orderSchema);
