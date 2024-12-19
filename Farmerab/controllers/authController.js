@@ -107,7 +107,7 @@ const forgotPassword = async (req, res) => {
       
       const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
       
-      const resetTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+      const resetTokenExpiry = Date.now() + 60 * 60 * 1000;
 
       user.resetPasswordToken = hashedResetToken;
       user.resetPasswordExpiry = resetTokenExpiry;
