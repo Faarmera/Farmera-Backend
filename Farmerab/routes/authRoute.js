@@ -11,7 +11,7 @@ router.post("/signin", signIn);
 router.post("/signout", protectRoute, signOut);
 router.get("/verify/:userId/:uniqueString", verifyEmail)
 router.post("/resendVerificationEmail", resendVerificationEmail)
-router.post("/forgotPassword", authorize(['admin', `buyer`, `farmer`]), forgotPassword);
-router.post("/resetPassword", authorize(['admin', `buyer`, `farmer`]), resetPassword);
+router.post("/forgotPassword", /*authorize(['admin', `buyer`, `farmer`]),*/ forgotPassword);
+router.post("/resetPassword", /*authorize(['admin', `buyer`, `farmer`]),*/ resetPassword);
 
 module.exports = router

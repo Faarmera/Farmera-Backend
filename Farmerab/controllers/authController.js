@@ -117,11 +117,11 @@ const forgotPassword = async (req, res) => {
 
       const emailHtml = `
           <p><strong>Hello ${user.firstname},</strong></p> <br> <br>
-          <p>You have requested a password reset for your Farmera account.</p> <br> <br>
+          <p>You have requested a password reset for your Farmera account.</p> <br>
           <p>Click the link below to reset your password. This link will expire in 1 hour:</p>
           <a href="${resetUrl}">Reset Password</a>
-          <p>If you did not request a password reset, please ignore this email.</p> <br><br>
-          <p>Best regards,<br> <br>The Farmera Team</p>
+          <p>If you did not request a password reset, please ignore this email.</p> <br>
+          <p>Best regards,<br>The Farmera Team</p>
       `;
 
       await sendEmail(email, 'Farmera Password Reset', emailHtml);
