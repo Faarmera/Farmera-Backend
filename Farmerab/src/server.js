@@ -26,7 +26,7 @@ app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 
 
 app.get('/', (req, res) => {
-  res.send('Welcome to my API!');
+  res.send('Welcome to Farmera API! \n the portal to a new world');
 });
 
 
