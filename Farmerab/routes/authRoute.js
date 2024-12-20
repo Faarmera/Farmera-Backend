@@ -2,7 +2,7 @@ const express = require("express")
 const router = express.Router()
 const { adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, verifyEmail, resendVerificationEmail, resetPassword, forgotPassword} = require("../controllers/authController.js")
 const {protectRoute} = require("../middlewares/protectRoute.js")
-const authorize = require('../middlewares/roleCheckMiddleware.js');
+// const authorize = require('../middlewares/roleCheckMiddleware.js');
 
 router.post("/signup/admin", adminSignUp)
 router.post("/signup/buyer", buyerSignUp)

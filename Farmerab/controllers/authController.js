@@ -116,7 +116,7 @@ const forgotPassword = async (req, res) => {
       const resetUrl = `${process.env.BASE_URL}/auth/resetPassword?token=${resetToken}&email=${email}`;
 
       const emailHtml = `
-          <p><strong>Hello ${user.firstname},</strong></p> <br> <br>
+          <p><strong>Hello ${user.firstname},</strong></p> <br>
           <p>You have requested a password reset for your Farmera account.</p> <br>
           <p>Click the link below to reset your password. This link will expire in 1 hour:</p>
           <a href="${resetUrl}">Reset Password</a>
