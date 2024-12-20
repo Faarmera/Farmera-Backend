@@ -248,6 +248,7 @@ const clearCart = async (req, res) => {
     }
 
     cart.cartItems = [];
+    cart.totalBill = 0
 
     await cart.save();
 
