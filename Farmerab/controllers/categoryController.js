@@ -50,10 +50,10 @@ const getAllCategories = async (req, res) => {
   }
 };
 
-const getCategoryById = async (req, res) => {
+const getCategoryByName = async (req, res) => {
   try {
-    const { id } = req.params;
-    const category = await Category.findById(id)
+    const { name } = req.params;
+    const category = await Category.findOne({ name })
       .populate({
         path: 'products',
         model: 'Product',
@@ -70,13 +70,14 @@ const getCategoryById = async (req, res) => {
     
     res.status(200).json(category);
   } catch (error) {
-    console.error("Error in getCategoryById:", error);
+    console.error("Error in getCategoryByName:", error);
     res.status(500).json({
       message: "Error retrieving category",
       error: error.message
     });
   }
 };
+
 
 const updateCategory = async (req, res) => {
   try {
@@ -130,5 +131,5 @@ const deleteCategory = async (req, res) => {
 }
 
 module.exports = {
-  createCategory, getAllCategories, getCategoryById, updateCategory, deleteCategory 
+  createCategory, getAllCategories, getCategoryByName, updateCategory, deleteCategory 
 } 
