@@ -11,7 +11,7 @@ const getAllProducts = async (req, res) => {
     const filter = {};
 
     if (category) {
-      filter.category = category;
+      filter.category = category.name;
     }
 
     if (minPrice || maxPrice) {
