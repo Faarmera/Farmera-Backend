@@ -7,51 +7,52 @@ const fs = require("fs");
 const getAllProducts = async (req, res) => {
   try {
     const { category, minPrice, maxPrice, location, search, page = 1, limit = 10 } = req.query;
-
+    
     const filter = {};
-
+    
     if (category) {
       filter.category = category.name;
     }
-
+    
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = parseFloat(minPrice);
       if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
     }
-
+    
     if (location) {
       filter.location = location;
     }
-
+    
     if (search) {
+      const searchRegex = new RegExp(search, 'i');
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { store: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } }
+        { name: searchRegex },
+        { description: searchRegex },
+        { store: searchRegex },
+        { category: searchRegex }
       ];
     }
-
+    
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
       sort: { createdAt: -1 },
-      populate: { 
-        path: 'category', 
-        select: 'name' 
+      populate: {
+        path: 'category',
+        select: 'name'
       }
     };
-
+    
     const result = await Product.paginate(filter, options);
-
+    
     res.status(200).json({
       products: result.docs,
       totalProducts: result.totalDocs,
       totalPages: result.totalPages,
       currentPage: result.page
     });
-
+    
   } catch (error) {
     console.error("Error fetching products:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
