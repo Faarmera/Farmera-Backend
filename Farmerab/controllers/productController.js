@@ -11,7 +11,10 @@ const getAllProducts = async (req, res) => {
     const filter = {};
     
     if (category) {
-      filter.category = category.name;
+      const categoryDoc = await Category.findOne({ name: category });
+      if (categoryDoc) {
+        filter.category = categoryDoc._id;
+      }
     }
     
     if (minPrice || maxPrice) {
@@ -29,8 +32,7 @@ const getAllProducts = async (req, res) => {
       filter.$or = [
         { name: searchRegex },
         { description: searchRegex },
-        { store: searchRegex },
-        { category: searchRegex }
+        { store: searchRegex }
       ];
     }
     
