@@ -472,6 +472,8 @@ const signIn = async (req, res) => {
     lastname: user.lastname,
     email: user.email,
     phonenumber: user.phonenumber,
+    type: user.type,
+    role: user.role,
     });
 
   } catch(error) {
