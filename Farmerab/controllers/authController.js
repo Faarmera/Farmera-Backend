@@ -234,6 +234,8 @@ const adminSignUp = async (req, res) => {
 
     await newUser.save();
 
+    const populatedUser = await User.findById(newUser._id).populate('role');
+
     const uniqueString = uuidv4() + newUser._id;
 
     await UserVerification.create({
@@ -257,14 +259,18 @@ const adminSignUp = async (req, res) => {
 
     res.status(201).json({
         message: 'User created. Verification email sent.',
+        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
         user: {
-            _id: newUser._id,
-            firstname: newUser.firstname,
-            lastname: newUser.lastname,
-            email: newUser.email,
-            type: newUser.type ,
-            phonenumber: newUser.phonenumber,
-            role: userRole._id
+            _id: populatedUser._id,
+            firstname: populatedUser.firstname,
+            lastname: populatedUser.lastname,
+            email: populatedUser.email,
+            type: populatedUser.type ,
+            phonenumber: populatedUser.phonenumber,
+            role: {
+                _id: populatedUser.role._id,
+                name: populatedUser.role.name
+            }
         },
     });
 } catch (error) {
@@ -322,6 +328,9 @@ const farmerSignUp = async (req, res) => {
 
     await newUser.save();
 
+    const populatedUser = await User.findById(newUser._id).populate('role');
+
+
     const uniqueString = uuidv4() + newUser._id;
 
     await UserVerification.create({
@@ -345,16 +354,20 @@ const farmerSignUp = async (req, res) => {
 
     res.status(201).json({
         message: 'User created. Verification email sent.',
+        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
         user: {
-            _id: newUser._id,
-            firstname: newUser.firstname,
-            lastname: newUser.lastname,
-            email: newUser.email,
-            type: newUser.type ,
-            phonenumber: newUser.phonenumber,
-            farmAddress: newUser. farmAddress,
-            state: newUser.state,
-            role: userRole._id
+            _id: populatedUser._id,
+            firstname: populatedUser.firstname,
+            lastname: populatedUser.lastname,
+            email: populatedUser.email,
+            type: populatedUser.type ,
+            phonenumber: populatedUser.phonenumber,
+            farmAddress: populatedUser. farmAddress,
+            state: populatedUser.state,
+            role: {
+              _id: populatedUser.role._id,
+              name: populatedUser.role.name
+          }
         },
     });
 } catch (error) {
@@ -410,6 +423,8 @@ const buyerSignUp = async (req, res) => {
 
     await newUser.save();
 
+    const populatedUser = await User.findById(newUser._id).populate('role');
+
     const uniqueString = uuidv4() + newUser._id;
 
     await UserVerification.create({
@@ -437,14 +452,18 @@ const buyerSignUp = async (req, res) => {
 
     res.status(201).json({
         message: 'User created. Verification email sent.',
+        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
         user: {
-          _id: newUser._id,
-          firstname: newUser.firstname,
-          lastname: newUser.lastname,
-          email: newUser.email,
-          type: newUser.type,
-          phonenumber: newUser.phonenumber,
-          role: userRole._id
+          _id: populatedUser._id,
+          firstname: populatedUser.firstname,
+          lastname: populatedUser.lastname,
+          email: populatedUser.email,
+          type: populatedUser.type,
+          phonenumber: populatedUser.phonenumber,
+          role: {
+            _id: populatedUser.role._id,
+            name: populatedUser.role.name
+        }
         },
     });
   } catch (error) {
@@ -454,10 +473,9 @@ const buyerSignUp = async (req, res) => {
 };
   
 const signIn = async (req, res) => {
-  
   try{
     const {email, password} = req.body;
-    const user = await User.findOne({email})
+    const user = await User.findOne({email}).populate('role');
     const isPasswordCorrect = await bcrypt.compare(password, user?.password || "")
   
     if(!user || !isPasswordCorrect){
@@ -465,15 +483,25 @@ const signIn = async (req, res) => {
     }
 
     generateTokenAndSetCookie (user._id, res);
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { 
+      expiresIn: '15d' 
+    });
     
     res.status(200).json({
-    _id: user._id,
-    firstname: user.firstname,
-    lastname: user.lastname,
-    email: user.email,
-    phonenumber: user.phonenumber,
-    type: user.type,
-    role: user.role,
+      token,
+      user: {
+        _id: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        phonenumber: user.phonenumber,
+        type: user.type,
+        role: {
+          _id: user.role._id,
+          name: user.role.name
+        }
+      }
     });
 
   } catch(error) {
