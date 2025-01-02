@@ -193,11 +193,11 @@ const adminSignUp = async (req, res) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        return res.status(400).json({ error: "Invalid email format" });
+      return res.status(400).json({ error: "Invalid email format" });
     }
 
     if (password.length < 8) {
-        return res.status(400).json({ error: "Password must be at least 8 characters long" });
+      return res.status(400).json({ error: "Password must be at least 8 characters long" });
     }
 
     const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
@@ -208,12 +208,17 @@ const adminSignUp = async (req, res) => {
     }
 
     if (phonenumber.length !== 11) {
-        return res.status(400).json({ error: "Phone Number must be 11 digits long" });
+      return res.status(400).json({ error: "Phone Number must be 11 digits long" });
+    }
+
+    const existingPhoneNumber = await User.findOne( { phonenumber });
+    if (existingPhoneNumber) {
+      return res.status(400).json({ error: "A user alread has this phone number. Kindly use another"})
     }
 
     const existingEmail = await User.findOne({ email });
     if (existingEmail) {
-        return res.status(400).json({ error: "Email is already taken" });
+      return res.status(400).json({ error: "Email is already taken" });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -301,6 +306,11 @@ const farmerSignUp = async (req, res) => {
 
     if (phonenumber.length !== 11) {
         return res.status(400).json({ error: "Phone Number must be 11 digits long" });
+    }
+
+    const existingPhoneNumber = await User.findOne( {phonenumber });
+    if (existingPhoneNumber) {
+      return res.status(400).json({ error: "A user alread has this phone number. Kindly use another"})
     }
 
     const existingEmail = await User.findOne({ email });
@@ -398,6 +408,11 @@ const buyerSignUp = async (req, res) => {
 
     if (phonenumber.length !== 11) {
         return res.status(400).json({ error: "Phone Number must be 11 digits long" });
+    }
+
+    const existingPhoneNumber = await User.findOne( {phonenumber });
+    if (existingPhoneNumber) {
+      return res.status(400).json({ error: "A user alread has this phone number. Kindly use another"})
     }
 
     const existingEmail = await User.findOne({ email });
