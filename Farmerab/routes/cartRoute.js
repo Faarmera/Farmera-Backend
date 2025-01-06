@@ -4,11 +4,11 @@ const { protectRoute} = require("../middlewares/protectRoute.js");
 const authorize = require('../middlewares/roleCheckMiddleware.js')
 const router = express.Router();
 
-router.get("/user", authorize(['admin', `buyer`, `farmer`]), getUserCart);
+router.get("/user", getUserCart);
 router.get("/get/allCarts", authorize(['admin']), getAllCarts)
-router.post("/add", authorize(['admin', `buyer`, `farmer`]), addToCart);
-router.delete("/delete" , authorize(['admin', `buyer`, `farmer`]), deleteProductFromCart )
-router.patch("/decrease" , authorize(['admin', `buyer`, `farmer`]), decreaseProductFromCart )
-router.delete("/clear" , authorize(['admin', `buyer`, `farmer`]), clearCart )
+router.post("/add", addToCart);
+router.delete("/delete" , deleteProductFromCart )
+router.patch("/decrease" , decreaseProductFromCart )
+router.delete("/clear" , clearCart )
 
 module.exports = router;
