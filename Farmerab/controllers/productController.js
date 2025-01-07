@@ -6,7 +6,7 @@ const fs = require("fs");
 
 const getAllProducts = async (req, res) => {
   try {
-    const { category, minPrice, maxPrice, location, search, page = 1, limit = 10 } = req.query;
+    const { category, minPrice, maxPrice, location, search, page = 1, limit = 12 } = req.query;
     
     const filter = {};
     
