@@ -16,22 +16,10 @@ app.use(express.urlencoded({ extended: true }))
 app.use(express.static(path.join(__dirname, "views")));
 app.use(cookieParser());
 app.use(cors());
-// app.use((req, res, next) => {
-//   res.setHeader("Access-Control-Allow-Origin", "*");
-//   next();
-// });
-
-// Allow all origins (not recommended for production)
-app.use(cors());
-
-app.use(
-  cors({
-    origin: 'https://farmera-eyu3.onrender.com', // Replace with your frontend URL in production
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'], // Allowed methods
-    credentials: true, // If using cookies/auth headers
-  })
-);
-
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  next();
+});
 app.use(bodyParser.json({ limit: "30mb" }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 // app.use(passport.initialize());
