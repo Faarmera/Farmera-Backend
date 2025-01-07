@@ -25,7 +25,7 @@ const addToCart = async (req, res) => {
   session.startTransaction();
 
   try {
-    const userId = req.user._id;
+    // const userId = req.user._id;
     const { products } = req.body;
 
     if (!products || !Array.isArray(products) || products.length === 0) {
