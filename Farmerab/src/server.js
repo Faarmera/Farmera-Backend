@@ -8,7 +8,6 @@ const path = require("path");
 const app = express();
 const bodyParser = require("body-parser")
 const seedRoles = require('../controllers/roleController.js');
-// const passport = require('passport');
 
 // Middlewares
 app.use(express.json());
@@ -23,14 +22,13 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: "localhost:5173",
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
 
 app.use(bodyParser.json({ limit: "30mb" }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
-// app.use(passport.initialize());
 
 
 app.get('/', (req, res) => {
