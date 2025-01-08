@@ -20,7 +20,6 @@ app.use(cookieParser());
 //   res.setHeader("Access-Control-Allow-Origin", "*");
 //   next();
 // });
-const cors = require("cors");
 
 app.use(
   cors({
