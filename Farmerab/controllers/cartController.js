@@ -86,7 +86,6 @@ const addToCart = async (req, res) => {
         });
       }
 
-      // Update total bill
       totalBill += productBill;
     }
 

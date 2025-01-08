@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get("/user", protectRoute, getUserCart);
 router.get("/get/allCarts", authorize(['admin']), getAllCarts)
-router.post("/add", addToCart);
+router.post("/add", protectRoute, addToCart);
 router.delete("/delete" , protectRoute, deleteProductFromCart )
 router.patch("/decrease" , protectRoute, decreaseProductFromCart )
 router.delete("/clear" , protectRoute, clearCart )
