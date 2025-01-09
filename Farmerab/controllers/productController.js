@@ -128,6 +128,7 @@ const createProduct = async (req, res) => {
       description,
       images,
       imageIds,
+      createdBy: req.user._id,
     });
 
     await newProduct.save();
@@ -217,4 +218,32 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-module.exports = { getAllProducts, getProductById, createProduct, updateProduct, deleteProduct };
+const getMyProducts = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    console.log('User ID:', userId); // Add this debug line
+
+    if (!userId) {
+      console.log("UserId not found")
+      return res.status(400).json({ error: "User ID not found" });
+    }
+
+    const products = await Product.find({ createdBy: userId })
+      .populate({
+        path: 'category',
+        select: 'name',
+      })
+      .sort({ createdAt: -1 });
+
+    if (!products || products.length === 0) {
+      return res.status(404).json({ message: "You have not created any products yet." });
+    }
+
+    res.status(200).json({ products });
+  } catch (error) {
+    console.error("Error fetching user's products:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+module.exports = { getAllProducts, getProductById, createProduct, updateProduct, deleteProduct, getMyProducts };

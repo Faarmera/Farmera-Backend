@@ -47,6 +47,7 @@ const protectRoute = async (req, res, next) => {
         }
 
         req.user = user; 
+        console.log('Protected Route - User:', user); 
         next();
     } catch (error) {
         console.error('Error in authentication middleware:', error);
