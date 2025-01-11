@@ -37,14 +37,14 @@ const productSchema = mongoose.Schema(
       type: String, 
       required: true 
     },
-    images: [{ 
+    image: { 
       type: String,
       required: true 
-    }],
-    imageIds: [{ 
+    },
+    imageId: { 
       type: String,
       required: true 
-    }],
+    },
     createdBy: { 
       type: mongoose.Schema.Types.ObjectId, 
       ref: "User", 

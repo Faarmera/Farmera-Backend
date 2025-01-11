@@ -32,6 +32,6 @@ const upload = multer({
       cb(new Error("Only JPEG, JPG, and PNG files are allowed"));
     }
   },
-}).array("images", 10);
+}).single("image");
 
 module.exports = upload;

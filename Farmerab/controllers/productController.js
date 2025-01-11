@@ -82,8 +82,8 @@ const getProductById = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: "At least one image is required" });
+    if (!req.file) {
+      return res.status(400).json({ error: "An image is required" });
     }
 
     const { name, store, qtyAvailable, category, price, location, description } = req.body;
@@ -101,22 +101,19 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ error: "Category does not exist. Create the category first." });
     }
 
-    const uploadImages = async (files) => {
-      const images = [];
-      const imageIds = [];
-      for (const file of files) {
-        if (!file.path) throw new Error("Invalid file or missing file path");
-        const result = await Cloudinary.uploader.upload(file.path, { folder: "products" });
-        images.push(result.secure_url);
-        imageIds.push(result.public_id);
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
+    const uploadImage = async (file) => {
+      if (!file.path) throw new Error("Invalid file or missing file path");
+      const result = await Cloudinary.uploader.upload(file.path, { folder: "products" });
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
       }
-      return { images, imageIds };
+      return {
+        image: result.secure_url,
+        imageId: result.public_id
+      };
     };
 
-    const { images, imageIds } = await uploadImages(req.files);
+    const { image, imageId } = await uploadImage(req.file);
 
     const newProduct = new Product({
       name,
@@ -126,8 +123,8 @@ const createProduct = async (req, res) => {
       price,
       location,
       description,
-      images,
-      imageIds,
+      image,
+      imageId,
       createdBy: req.user._id,
     });
 

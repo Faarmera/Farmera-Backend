@@ -4,7 +4,7 @@ const { protectRoute } = require("../middlewares/protectRoute.js");
 const authorize = require('../middlewares/roleCheckMiddleware.js');
 const router = express.Router();
 
-router.post("/create", authorize(['admin']), createCategory);
+router.post("/create", protectRoute, authorize(['admin']), createCategory);
 router.get("/get/allCategories", getAllCategories);
 router.get("/get/:name", getCategoryByName);
 router.put("/update/:id", authorize(['admin']), updateCategory);
