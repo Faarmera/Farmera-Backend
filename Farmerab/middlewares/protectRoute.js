@@ -40,14 +40,11 @@ const protectRoute = async (req, res, next) => {
         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decodedToken.userId);
 
-        // console.log({decodedToken, user})
-
         if (!user) {
         return res.status(401).json({ error: 'User not found' });
         }
 
         req.user = user; 
-        // console.log('Protected Route - User:', user); 
         next();
     } catch (error) {
         console.error('Error in authentication middleware:', error);

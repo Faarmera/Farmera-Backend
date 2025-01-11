@@ -141,12 +141,19 @@ const getAllOrders = async (req, res) => {
 };
 
 const getUserOrder = async (req, res) => { 
-  try { 
-    const { userId } = req.params; 
+  try {  
+    const userId = req.user._id;
+
+    const order = await Order.findOne({ user: userId }).populate("orderItems.product");
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
     const { page = 1, limit = 10, isPaid, isShipped, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query; 
  
     const pageNum = Math.max(1, parseInt(page)); 
-    const limitNum = Math.max(1, Math.min(parseInt(limit), 100)); // Max limit of 100 
+    const limitNum = Math.max(1, Math.min(parseInt(limit), 100));
  
     const userExists = await User.findById(userId); 
     if (!userExists) { 
