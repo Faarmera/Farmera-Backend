@@ -153,27 +153,19 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    if (req.files && req.files.length > 0) {
-      for (const imageId of product.imageIds) {
-        await Cloudinary.uploader.destroy(imageId);
+    if (req.file) {
+      if (product.imageId) {
+        await Cloudinary.uploader.destroy(product.imageId);
       }
 
-      const images = [];
-      const imageIds = [];
+      const result = await Cloudinary.uploader.upload(req.file.path, {
+        folder: "products",
+      });
 
-      for (const file of req.files) {
-        const result = await Cloudinary.uploader.upload(file.path, {
-          folder: "products",
-        });
+      product.image = result.secure_url;
+      product.imageId = result.public_id;
 
-        images.push(result.secure_url);
-        imageIds.push(result.public_id);
-
-        fs.unlinkSync(file.path);
-      }
-
-      product.images = images;
-      product.imageIds = imageIds;
+      fs.unlinkSync(req.file.path);
     }
 
     if (name) product.name = name;
@@ -188,7 +180,7 @@ const updateProduct = async (req, res) => {
 
     res.status(200).json({ message: "Product updated successfully", product });
   } catch (error) {
-    console.error("Error updatinProduct:", error.message);
+    console.error("Error updating Product:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -202,13 +194,13 @@ const deleteProduct = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    for (const imageId of product.imageIds) {
-      await Cloudinary.uploader.destroy(imageId);
+    if (product.imageId) {
+      await Cloudinary.uploader.destroy(product.imageId);
     }
 
     await Product.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Product deleted successfully", Product });
+    res.status(200).json({ message: "Product deleted successfully" });
   } catch (error) {
     console.error("Error deleting product:", error.message);
     res.status(500).json({ error: "Internal server error" });
@@ -218,7 +210,7 @@ const deleteProduct = async (req, res) => {
 const getMyProducts = async (req, res) => {
   try {
     const userId = req.user._id;
-    console.log('User ID:', userId); // Add this debug line
+    console.log('User ID:', userId);
 
     if (!userId) {
       console.log("UserId not found")
