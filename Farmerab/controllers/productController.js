@@ -147,7 +147,7 @@ const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, store, qtyAvailable, category, price, location, description } = req.body;
-
+    
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
@@ -157,34 +157,39 @@ const updateProduct = async (req, res) => {
       if (product.imageId) {
         await Cloudinary.uploader.destroy(product.imageId);
       }
-
       const result = await Cloudinary.uploader.upload(req.file.path, {
         folder: "products",
       });
-
       product.image = result.secure_url;
       product.imageId = result.public_id;
-
       fs.unlinkSync(req.file.path);
     }
 
     if (name) product.name = name;
     if (store) product.store = store;
     if (qtyAvailable) product.qtyAvailable = qtyAvailable;
-    if (category) product.category = category;
+    if (category) {
+      if (typeof category === 'string') {
+        const categoryDoc = await Category.findOne({ name: category });
+        if (!categoryDoc) {
+          return res.status(400).json({ error: `Category '${category}' not found` });
+        }
+        product.category = categoryDoc._id;
+      } else {
+        product.category = category;
+      }
+    }
     if (price) product.price = price;
     if (location) product.location = location;
     if (description) product.description = description;
 
     await product.save();
-
-    console.log("I reached here")
-
+    
+    await product.populate('category');
     res.status(200).json({ message: "Product updated successfully", product });
   } catch (error) {
     console.error("Error updating Product:", error.message);
-    console.log("I reached here 2")
-    res.status(500).json({ error: "Internal server error" });
+    res.status(400).json({ error: error.message });
   }
 };
 
