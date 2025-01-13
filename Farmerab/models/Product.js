@@ -9,7 +9,8 @@ const productSchema = mongoose.Schema(
     },
     store: { 
       type: String, 
-      required: true 
+      required: true,
+      maxLength: 200
     },
     qtyAvailable: { 
       type: Number, 

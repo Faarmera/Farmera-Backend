@@ -178,9 +178,12 @@ const updateProduct = async (req, res) => {
 
     await product.save();
 
+    console.log("I reached here")
+
     res.status(200).json({ message: "Product updated successfully", product });
   } catch (error) {
     console.error("Error updating Product:", error.message);
+    console.log("I reached here 2")
     res.status(500).json({ error: "Internal server error" });
   }
 };
