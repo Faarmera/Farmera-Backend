@@ -44,6 +44,7 @@ const cartRoutes = require("../routes/cartRoute.js");
 const categoryRoutes = require("../routes/categoryRoute.js");
 const orderRoutes = require("../routes/orderRoute.js");
 const roleRoutes = require("../routes/roleRoute.js")
+const paymentRoutes = require('../routes/paymentRoutes');
 
 
 
@@ -55,6 +56,7 @@ app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/category", categoryRoutes);
 app.use("/api/v1/order", orderRoutes);
 app.use("/api/v1/role", roleRoutes)
+app.use("/api/v1/payment", paymentRoutes)
 
 
 
