@@ -15,33 +15,47 @@ const Role = require("../models/Role.js")
 const verifyEmail = async (req, res) => {
   const { userId, uniqueString } = req.params;
 
-    try {
-        const verificationRecord = await UserVerification.findOne({ userId });
-        if (!verificationRecord) {
-            return res.status(404).sendFile(path.join(__dirname, './'));
-        }
-
-        const { uniqueString: hashedString, expiresAt } = verificationRecord;
-
-        if (expiresAt < Date.now()) {
-            await UserVerification.deleteOne({ userId });
-            return res.status(400).sendFile(path.join(__dirname, '../views/verificationFailed.html'));
-        }
-
-        const isMatch = await bcrypt.compare(uniqueString, hashedString);
-        if (!isMatch) {
-            return res.status(400).sendFile(path.join(__dirname, '../views/verificationFailed.html'));
-        }
-
-        await User.updateOne({ _id: userId }, { emailVerified: true });
-
-        await UserVerification.deleteOne({ userId });
-
-        return res.status(200).sendFile(path.join(__dirname, '../views/verificationSuccessful.html'));
-    } catch (error) {
-        console.error('Error during email verification:', error.message);
-        return res.status(500).sendFile(path.join(__dirname, '../views/verificationFailed.html'));
+  try {
+    const verificationRecord = await UserVerification.findOne({ userId });
+    if (!verificationRecord) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Verification record not found' 
+      });
     }
+
+    const { uniqueString: hashedString, expiresAt } = verificationRecord;
+
+    if (expiresAt < Date.now()) {
+      await UserVerification.deleteOne({ userId });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Verification link has expired' 
+      });
+    }
+
+    const isMatch = await bcrypt.compare(uniqueString, hashedString);
+    if (!isMatch) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid verification link' 
+      });
+    }
+
+    await User.updateOne({ _id: userId }, { emailVerified: true });
+    await UserVerification.deleteOne({ userId });
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Email verified successfully' 
+    });
+  } catch (error) {
+    console.error('Error during email verification:', error.message);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server error during verification' 
+    });
+  }
 };
 
 const resendVerificationEmail = async (req, res) => {
