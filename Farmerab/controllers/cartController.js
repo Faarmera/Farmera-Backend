@@ -5,17 +5,27 @@ const mongoose = require('mongoose');
 
 const getUserCart = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const cartId = req.headers['x-cart-id'];
+    const isAuthenticated = req.user !== undefined;
 
-    const cart = await Cart.findOne({ user: userId }).populate("cartItems.product");
+    const cart = isAuthenticated
+      ? await Cart.findOne({ user: req.user._id }).populate("cartItems.product")
+      : await Cart.findOne({ cartId: cartId, user: null }).populate("cartItems.product");
 
     if (!cart) {
+      if (!isAuthenticated) {
+        return res.status(200).json({
+          cartItems: [],
+          totalBill: 0,
+          cartId: cartId
+        });
+      }
       return res.status(404).json({ error: "Cart not found" });
     }
 
     res.status(200).json(cart);
   } catch (error) {
-    console.error("Error retrieving user cart:", error.message);
+    console.error("Error retrieving cart:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
