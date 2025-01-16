@@ -27,12 +27,12 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(bodyParser.json({ limit: "30mb" }));
-app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
+app.use(bodyParser.json({ limit: "5mb" }));
+app.use(bodyParser.urlencoded({ limit: "5mb", extended: true }));
 
 
 app.get('/', (req, res) => {
-  res.send('Welcome to Farmera API! \n the portal to a new world');
+  res.send('Welcome to Farmera API! the portal to a new world');
 });
 
 
@@ -44,7 +44,7 @@ const cartRoutes = require("../routes/cartRoute.js");
 const categoryRoutes = require("../routes/categoryRoute.js");
 const orderRoutes = require("../routes/orderRoute.js");
 const roleRoutes = require("../routes/roleRoute.js")
-const paymentRoutes = require('../routes/paymentRoutes');
+const paymentRoutes = require("../routes/paymentRoute.js");
 
 
 
@@ -55,8 +55,8 @@ app.use("/api/v1/product", productRoutes);
 app.use("/api/v1/cart", cartRoutes);
 app.use("/api/v1/category", categoryRoutes);
 app.use("/api/v1/order", orderRoutes);
-app.use("/api/v1/role", roleRoutes)
-app.use("/api/v1/payment", paymentRoutes)
+app.use("/api/v1/role", roleRoutes);
+app.use("/api/v1/payment", paymentRoutes);
 
 
 

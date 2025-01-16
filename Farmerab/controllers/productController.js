@@ -82,8 +82,8 @@ const getProductById = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "An image is required" });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "At least one image is required" });
     }
 
     const { name, store, qtyAvailable, category, price, location, description } = req.body;
@@ -101,19 +101,22 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ error: "Category does not exist. Create the category first." });
     }
 
-    const uploadImage = async (file) => {
-      if (!file.path) throw new Error("Invalid file or missing file path");
-      const result = await Cloudinary.uploader.upload(file.path, { folder: "products" });
-      if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
+    const uploadImages = async (files) => {
+      const images = [];
+      const imageIds = [];
+      for (const file of files) {
+        if (!file.path) throw new Error("Invalid file or missing file path");
+        const result = await Cloudinary.uploader.upload(file.path, { folder: "products" });
+        images.push(result.secure_url);
+        imageIds.push(result.public_id);
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
       }
-      return {
-        image: result.secure_url,
-        imageId: result.public_id
-      };
+      return { images, imageIds };
     };
 
-    const { image, imageId } = await uploadImage(req.file);
+    const { images, imageIds } = await uploadImages(req.files);
 
     const newProduct = new Product({
       name,
@@ -123,8 +126,8 @@ const createProduct = async (req, res) => {
       price,
       location,
       description,
-      image,
-      imageId,
+      images,
+      imageIds,
       createdBy: req.user._id,
     });
 
@@ -147,22 +150,33 @@ const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, store, qtyAvailable, category, price, location, description } = req.body;
-    
+
     const product = await Product.findById(id);
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    if (req.file) {
-      if (product.imageId) {
-        await Cloudinary.uploader.destroy(product.imageId);
+    if (req.files && req.files.length > 0) {
+      for (const imageId of product.imageIds) {
+        await Cloudinary.uploader.destroy(imageId);
       }
-      const result = await Cloudinary.uploader.upload(req.file.path, {
-        folder: "products",
-      });
-      product.image = result.secure_url;
-      product.imageId = result.public_id;
-      fs.unlinkSync(req.file.path);
+
+      const images = [];
+      const imageIds = [];
+
+      for (const file of req.files) {
+        const result = await Cloudinary.uploader.upload(file.path, {
+          folder: "products",
+        });
+
+        images.push(result.secure_url);
+        imageIds.push(result.public_id);
+
+        fs.unlinkSync(file.path);
+      }
+
+      product.images = images;
+      product.imageIds = imageIds;
     }
 
     if (name) product.name = name;
@@ -186,12 +200,63 @@ const updateProduct = async (req, res) => {
     await product.save();
     
     await product.populate('category');
+
     res.status(200).json({ message: "Product updated successfully", product });
   } catch (error) {
-    console.error("Error updating Product:", error.message);
-    res.status(400).json({ error: error.message });
+    console.error("Error updatinProduct:", error.message);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// const updateProduct = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { name, store, qtyAvailable, category, price, location, description } = req.body;
+    
+//     const product = await Product.findById(id);
+//     if (!product) {
+//       return res.status(404).json({ error: "Product not found" });
+//     }
+
+//     if (req.file) {
+//       if (product.imageId) {
+//         await Cloudinary.uploader.destroy(product.imageId);
+//       }
+//       const result = await Cloudinary.uploader.upload(req.file.path, {
+//         folder: "products",
+//       });
+//       product.image = result.secure_url;
+//       product.imageId = result.public_id;
+//       fs.unlinkSync(req.file.path);
+//     }
+
+//     if (name) product.name = name;
+//     if (store) product.store = store;
+//     if (qtyAvailable) product.qtyAvailable = qtyAvailable;
+//     if (category) {
+//       if (typeof category === 'string') {
+//         const categoryDoc = await Category.findOne({ name: category });
+//         if (!categoryDoc) {
+//           return res.status(400).json({ error: `Category '${category}' not found` });
+//         }
+//         product.category = categoryDoc._id;
+//       } else {
+//         product.category = category;
+//       }
+//     }
+//     if (price) product.price = price;
+//     if (location) product.location = location;
+//     if (description) product.description = description;
+
+//     await product.save();
+    
+//     await product.populate('category');
+//     res.status(200).json({ message: "Product updated successfully", product });
+//   } catch (error) {
+//     console.error("Error updating Product:", error.message);
+//     res.status(400).json({ error: error.message });
+//   }
+// };
 
 const deleteProduct = async (req, res) => {
   try {
@@ -202,13 +267,13 @@ const deleteProduct = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    if (product.imageId) {
-      await Cloudinary.uploader.destroy(product.imageId);
+    for (const imageId of product.imageId) {
+      await Cloudinary.uploader.destroy(imageId);
     }
 
     await Product.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Product deleted successfully" });
+    res.status(200).json({ message: "Product deleted successfully", Product });
   } catch (error) {
     console.error("Error deleting product:", error.message);
     res.status(500).json({ error: "Internal server error" });
