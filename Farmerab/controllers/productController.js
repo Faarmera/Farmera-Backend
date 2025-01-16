@@ -1,5 +1,6 @@
 const Product = require("../models/Product.js");
 const Category = require("../models/Category.js")
+const User = require("../models/User.js")
 const Cloudinary = require("../config/cloudinary.js");
 const mongoose = require("mongoose");
 const fs = require("fs");
@@ -82,13 +83,20 @@ const getProductById = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
+    const userId = req.user._id;
+
+    let user = await User.findById(userId);
+    if (!user){
+      return res.status(404).json({ message: "User not found"})
+    }
+
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: "At least one image is required" });
     }
 
-    const { name, store, qtyAvailable, category, price, location, description } = req.body;
+    const { name, qtyAvailable, category, price, description } = req.body;
 
-    if (!name || !store || !category || !price || !qtyAvailable || !location || !description) {
+    if (!name || !category || !price || !qtyAvailable || !description) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
@@ -120,11 +128,11 @@ const createProduct = async (req, res) => {
 
     const newProduct = new Product({
       name,
-      store,
+      store: user.farmAddress,
       qtyAvailable,
       category: categoryDoc._id,
       price,
-      location,
+      location: user.state,
       description,
       images,
       imageIds,

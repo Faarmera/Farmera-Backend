@@ -9,8 +9,8 @@ const productSchema = mongoose.Schema(
     },
     store: { 
       type: String, 
-      required: true,
-      maxLength: 200
+      // required: true,
+      // maxLength: 200
     },
     qtyAvailable: { 
       type: Number, 
@@ -32,7 +32,7 @@ const productSchema = mongoose.Schema(
     },
     location: {
       type: String,
-      required: true,
+      // required: true,
     },
     description: { 
       type: String, 
