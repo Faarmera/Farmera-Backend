@@ -19,11 +19,15 @@ const CartItemSchema = mongoose.Schema({
 
 const cartSchema = mongoose.Schema(
   {
+    cartId: { 
+      type: String 
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
       unique: true,
+      default: null, 
     },
     cartItems: [CartItemSchema],
     totalBill: {
