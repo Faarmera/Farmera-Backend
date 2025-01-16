@@ -118,7 +118,6 @@ const addToCart = async (req, res) => {
   session.startTransaction();
 
   try {
-    // Get cartId from request headers or generate a new one for guest users
     const cartId = req.headers['x-cart-id'] || generateCartId();
     const isAuthenticated = req.user !== undefined;
     
@@ -128,12 +127,10 @@ const addToCart = async (req, res) => {
       return res.status(400).json({ error: "No products provided to add to cart." });
     }
 
-    // Find cart based on authentication status
     let cart = isAuthenticated 
       ? await Cart.findOne({ user: req.user._id }).session(session)
       : await Cart.findOne({ cartId: cartId, user: null }).session(session);
 
-    // Create new cart if it doesn't exist
     if (!cart) {
       cart = new Cart({
         cartId: cartId,
@@ -201,7 +198,6 @@ const addToCart = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    // Return cartId in response for guest users
     return res.status(200).json({
       message: "Items added to cart successfully.",
       cart,
@@ -216,7 +212,6 @@ const addToCart = async (req, res) => {
   }
 };
 
-// Helper function to generate unique cart ID for guest users
 function generateCartId() {
   return `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
