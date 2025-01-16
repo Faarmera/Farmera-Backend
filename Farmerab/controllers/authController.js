@@ -99,6 +99,8 @@ const resendVerificationEmail = async (req, res) => {
         The Farmera Team</p>
     `;
 
+    console.log(verificationUrl)
+
     await sendEmail(email, "Farmera Resend Verification Email", emailHtml);
 
     res.status(200).json({ message: "Verification email has been resent" });
@@ -273,6 +275,8 @@ const adminSignUp = async (req, res) => {
         Best, <br>  <br>
         The Farmera Team</p>
     `;
+
+    console.log(verificationUrl)
 
     await sendEmail(email, 'Farmera Verification Mail', emailHtml);
 
