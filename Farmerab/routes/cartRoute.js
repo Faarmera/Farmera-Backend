@@ -4,7 +4,7 @@ const { protectRoute} = require("../middlewares/protectRoute.js");
 const authorize = require('../middlewares/roleCheckMiddleware.js')
 const router = express.Router();
 
-router.get("/user", protectRoute, getUserCart);
+router.get("/user", getUserCart);
 router.get("/get/allCarts", authorize(['admin']), getAllCarts);
 router.post("/add", addToCart);
 router.patch("/decrease", decreaseProductFromCart);
