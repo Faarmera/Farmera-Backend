@@ -22,13 +22,11 @@ const cartSchema = mongoose.Schema(
     cartId: { 
       type: String,
       sparse: true, 
-      unique: true
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: false,
-      index: false, 
+      default: null,
     },
     cartItems: [CartItemSchema],
     totalBill: {
@@ -42,19 +40,23 @@ const cartSchema = mongoose.Schema(
   }
 );
 
-cartSchema.index({ 
-  cartId: 1, 
-  user: 1 
-}, { 
-  unique: true,
-  sparse: true,
-  partialFilterExpression: {
-    $or: [
-      { cartId: { $exists: true } },
-      { user: { $exists: true } }
-    ]
+cartSchema.index(
+  { cartId: 1 }, 
+  { 
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { cartId: { $exists: true, $ne: null } }
   }
-});
+);
+
+cartSchema.index(
+  { user: 1 }, 
+  { 
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { user: { $exists: true, $ne: null } }
+  }
+);
 
 const Cart = mongoose.model("Cart", cartSchema);
 
