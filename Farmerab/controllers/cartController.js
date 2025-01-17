@@ -557,19 +557,24 @@ const clearCart = async (req, res) => {
 const mergeCartsAfterLogin = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-
   try {
     const { cartId } = req.body;
     if (!cartId) {
       return res.status(400).json({ error: "Guest cart ID is required" });
     }
-
-    const guestCart = await Cart.findOne({ cartId, user: null }).session(session);
+    
+    const guestCart = await Cart.findOne({ cartId, user: null })
+      .populate("cartItems.product")
+      .session(session);
+      
     if (!guestCart) {
       return res.status(404).json({ error: "Guest cart not found" });
     }
-
-    let userCart = await Cart.findOne({ user: req.user._id }).session(session);
+    
+    let userCart = await Cart.findOne({ user: req.user._id })
+      .populate("cartItems.product")
+      .session(session);
+      
     if (!userCart) {
       userCart = new Cart({
         user: req.user._id,
@@ -596,12 +601,15 @@ const mergeCartsAfterLogin = async (req, res) => {
     await Cart.deleteOne({ _id: guestCart._id }).session(session);
     await userCart.save({ session });
 
+    const populatedUserCart = await Cart.findById(userCart._id)
+      .populate("cartItems.product");
+
     await session.commitTransaction();
     session.endSession();
 
     res.status(200).json({
       message: "Carts merged successfully",
-      cart: userCart
+      cart: populatedUserCart
     });
   } catch (error) {
     await session.abortTransaction();
