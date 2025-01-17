@@ -275,7 +275,7 @@ const deleteProduct = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    for (const imageId of product.imageId) {
+    for (const imageId of product.imageIds) {
       await Cloudinary.uploader.destroy(imageId);
     }
 
