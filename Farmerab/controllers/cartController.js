@@ -12,8 +12,6 @@ const getUserCart = async (req, res) => {
       ? await Cart.findOne({ user: req.user._id }).populate("cartItems.product")
       : await Cart.findOne({ cartId: cartId, user: null }).populate("cartItems.product");
 
-      console.log("Fetched Cart:", cart);
-
     if (!cart) {
       if (!isAuthenticated) {
         return res.status(200).json({
@@ -341,8 +339,8 @@ const mergeCartsAfterLogin = async (req, res) => {
       });
     }
 
-    console.log("Guest Cart:", guestCart);
-    console.log("User Cart after merge:", userCart);
+    // console.log("Guest Cart:", guestCart);
+    // console.log("User Cart after merge:", userCart);
 
     for (const item of guestCart.cartItems) {
       const existingItem = userCart.cartItems.find(
