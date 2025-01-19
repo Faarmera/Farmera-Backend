@@ -3,7 +3,34 @@ const Product = require("../models/Product.js")
 const User = require("../models/User.js")
 const mongoose = require('mongoose');
 
-const getUserCart = async (req, res) => {
+const getSignedInUserCart = async (req, res) => {
+  try {
+    const cartId = req.headers['x-cart-id'];
+    const isAuthenticated = req.user !== undefined;
+
+    const cart = isAuthenticated
+      ? await Cart.findOne({ user: req.user._id }).populate("cartItems.product")
+      : await Cart.findOne({ cartId: cartId, user: null }).populate("cartItems.product");
+
+    if (!cart) {
+      if (!isAuthenticated) {
+        return res.status(200).json({
+          cartItems: [],
+          totalBill: 0,
+          cartId: cartId
+        });
+      }
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    res.status(200).json(cart);
+  } catch (error) {
+    console.error("Error retrieving cart:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const getGuestUserCart = async (req, res) => {
   try {
     const cartId = req.headers['x-cart-id'];
     const isAuthenticated = req.user !== undefined;
@@ -150,7 +177,7 @@ const getAllCarts = async  (req, res ) => {
   }
 };
 
-const decreaseProductFromCart = async (req, res) => {
+const decreaseGuestProductFromCart = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -216,7 +243,73 @@ const decreaseProductFromCart = async (req, res) => {
   }
 };
 
-const deleteProductFromCart = async (req, res) => {
+const decreaseSignedInProductFromCart = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const cartId = req.headers['x-cart-id'];
+    const isAuthenticated = req.user !== undefined;
+
+    const cart = isAuthenticated 
+      ? await Cart.findOne({ user: req.user._id }).session(session)
+      : await Cart.findOne({ cartId: cartId, user: null }).session(session);
+
+    if (!cart) {
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    const { productId } = req.body;
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
+    const itemIndex = cart.cartItems.findIndex(
+      (item) => item.product.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: "Product not found in cart" });
+    }
+
+    const cartItem = cart.cartItems[itemIndex];
+    const product = await Product.findById(productId).session(session);
+
+    if (!product) {
+      await session.abortTransaction();
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    cartItem.quantity -= 1;
+
+    if (cartItem.quantity <= 0) {
+      cart.cartItems.splice(itemIndex, 1);
+    } else {
+      cartItem.price = cartItem.quantity * product.price;
+    }
+
+    cart.totalBill = cart.cartItems.reduce((total, item) => total + item.price, 0);
+
+    product.qtyAvailable += 1;
+    await product.save({ session });
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      message: "1 unit removed from the product in cart successfully",
+      cart,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error decreasing cart item quantity:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const deleteSignedInProductFromCart = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -275,7 +368,101 @@ const deleteProductFromCart = async (req, res) => {
   }
 };
 
-const clearCart = async (req, res) => {
+const deleteGuestProductFromCart = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const cartId = req.headers['x-cart-id'];
+    const isAuthenticated = req.user !== undefined;
+    
+    const cart = isAuthenticated 
+      ? await Cart.findOne({ user: req.user._id }).session(session)
+      : await Cart.findOne({ cartId: cartId, user: null }).session(session);
+
+    if (!cart) {
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    const { productId } = req.body;
+    if (!productId) {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+
+    const itemIndex = cart.cartItems.findIndex(
+      (item) => item.product.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ error: "Product not found in cart" });
+    }
+
+    const cartItemToRemove = cart.cartItems[itemIndex];
+    
+    const product = await Product.findById(productId).session(session);
+    if (!product) {
+      await session.abortTransaction();
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    product.qtyAvailable += cartItemToRemove.quantity;
+    await product.save({ session });
+
+    cart.cartItems.splice(itemIndex, 1);
+    cart.totalBill = cart.cartItems.reduce((total, item) => total + item.price, 0);
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      message: "Product removed from cart successfully",
+      cart,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error removing product from cart:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const clearSignedInUserCart = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const cartId = req.headers['x-cart-id'];
+    const isAuthenticated = req.user !== undefined;
+    
+    const cart = isAuthenticated 
+      ? await Cart.findOne({ user: req.user._id }).session(session)
+      : await Cart.findOne({ cartId: cartId, user: null }).session(session);
+
+    if (!cart) {
+      return res.status(404).json({ error: "Cart not found" });
+    }
+
+    cart.cartItems = [];
+    cart.totalBill = 0;
+    await cart.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.status(200).json({
+      message: "Cart cleared successfully",
+      cart,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("Error clearing cart:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const clearGuestUserCart = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -339,9 +526,6 @@ const mergeCartsAfterLogin = async (req, res) => {
       });
     }
 
-    // console.log("Guest Cart:", guestCart);
-    // console.log("User Cart after merge:", userCart);
-
     for (const item of guestCart.cartItems) {
       const existingItem = userCart.cartItems.find(
         cartItem => cartItem.product.toString() === item.product.toString()
@@ -380,4 +564,4 @@ const mergeCartsAfterLogin = async (req, res) => {
   }
 };
 
-module.exports = { getUserCart, getAllCarts, addToCart, deleteProductFromCart,  decreaseProductFromCart, clearCart, mergeCartsAfterLogin  };
+module.exports = { getSignedInUserCart, getGuestUserCart, getAllCarts, addToCart, deleteGuestProductFromCart, deleteSignedInProductFromCart, decreaseGuestProductFromCart, decreaseSignedInProductFromCart, clearSignedInUserCart, clearGuestUserCart, mergeCartsAfterLogin  };
