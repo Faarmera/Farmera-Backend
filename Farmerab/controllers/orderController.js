@@ -10,7 +10,89 @@ const createOrder = async (req, res) => {
 
   try {
     const userId = req.user?._id;
+    const query = userId ? { user: userId } : { cartId: req.body.cartId }; 
+    const cart = await Cart.findOne(query).populate("cartItems.product").session(session);
 
+    if (!cart || cart.cartItems.length === 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ error: "Your cart is empty or not found." });
+    }
+
+    const orderItems = [];
+    const errorMessages = [];
+
+    for (const cartItem of cart.cartItems) {
+      const product = cartItem.product;
+
+      if (!product) {
+        errorMessages.push(`Invalid cart item: Product does not exist.`);
+        continue;
+      }
+
+      const currentProduct = await Product.findById(product._id).session(session);
+
+      if (!currentProduct || currentProduct.qtyAvailable < cartItem.quantity) {
+        errorMessages.push(
+          `Insufficient stock for product: ${product.name}. Only ${currentProduct?.qtyAvailable || 0} available.`
+        );
+        continue;
+      }
+
+      currentProduct.qtyAvailable -= cartItem.quantity;
+      await currentProduct.save({ session });
+
+      orderItems.push({
+        name: product.name,
+        qty: cartItem.quantity,
+        price: product.price,
+        product: product._id,
+      });
+    }
+
+    if (errorMessages.length > 0) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        error: "Some items could not be processed",
+        details: errorMessages,
+      });
+    }
+
+    const totalPrice = orderItems.reduce((acc, item) => acc + item.qty * item.price, 0);
+
+    const newOrder = new Order({
+      user: userId || null,
+      orderItems,
+      shippingAddress: req.body.shippingAddress,
+      totalPrice,
+    });
+
+    await newOrder.save({ session });
+
+    cart.cartItems = [];
+    cart.totalBill = 0;
+    await cart.save({ session });
+
+    await session.commitTransaction();
+
+    res.status(201).json({
+      message: "Order created successfully.",
+      order: newOrder,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error creating order:", error.message);
+    res.status(500).json({ error: "Internal server error." });
+  } finally {
+    session.endSession();
+  }
+};
+
+const createGuestOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const userId = req.user?._id;
     const query = userId ? { user: userId } : { cartId: req.body.cartId }; 
     const cart = await Cart.findOne(query).populate("cartItems.product").session(session);
 
