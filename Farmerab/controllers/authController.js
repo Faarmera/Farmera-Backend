@@ -84,7 +84,7 @@ const resendVerificationEmail = async (req, res) => {
       {
         uniqueString: hashedString,
         createdAt: Date.now(),
-        expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
+        expiresAt: Date.now() + 30 * 60 * 1000,
       },
       { upsert: true, new: true }
     );
@@ -227,7 +227,7 @@ const adminSignUp = async (req, res) => {
 
     const existingPhoneNumber = await User.findOne( { phonenumber });
     if (existingPhoneNumber) {
-      return res.status(400).json({ error: "A user alread has this phone number. Kindly use another"})
+      return res.status(400).json({ error: "A user already has this phone number. Kindly use another"})
     }
 
     const existingEmail = await User.findOne({ email });
@@ -324,7 +324,7 @@ const farmerSignUp = async (req, res) => {
 
     const existingPhoneNumber = await User.findOne( {phonenumber });
     if (existingPhoneNumber) {
-      return res.status(400).json({ error: "A user alread has this phone number. Kindly use another"})
+      return res.status(400).json({ error: "A user already has this phone number. Kindly use another"})
     }
 
     const existingEmail = await User.findOne({ email });
@@ -426,7 +426,7 @@ const buyerSignUp = async (req, res) => {
 
     const existingPhoneNumber = await User.findOne( {phonenumber });
     if (existingPhoneNumber) {
-      return res.status(400).json({ error: "A user alread has this phone number. Kindly use another"})
+      return res.status(400).json({ error: "A user already has this phone number. Kindly use another"})
     }
 
     const existingEmail = await User.findOne({ email });

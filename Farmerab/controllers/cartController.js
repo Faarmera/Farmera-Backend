@@ -62,22 +62,22 @@ const addToCart = async (req, res) => {
   session.startTransaction();
 
   try {
-    const cartId = req.headers['x-cart-id'] || generateCartId();
+    const cartId = req.headers["x-cart-id"] || generateCartId();
     const isAuthenticated = req.user !== undefined;
-    
+
     const { products } = req.body;
 
     if (!products || !Array.isArray(products) || products.length === 0) {
       return res.status(400).json({ error: "No products provided to add to cart." });
     }
 
-    let cart = isAuthenticated 
+    let cart = isAuthenticated
       ? await Cart.findOne({ user: req.user._id }).session(session)
-      : await Cart.findOne({ cartId: cartId, user: null }).session(session);
+      : await Cart.findOne({ cartId, user: null }).session(session);
 
     if (!cart) {
       cart = new Cart({
-        cartId: cartId,
+        cartId,
         user: isAuthenticated ? req.user._id : null,
         cartItems: [],
         totalBill: 0,
@@ -122,7 +122,7 @@ const addToCart = async (req, res) => {
         existingCartItem.price = existingCartItem.quantity * foundProduct.price;
       } else {
         cart.cartItems.push({
-          product: productId,
+          product: foundProduct._id, // Ensure valid reference
           quantity,
           price: productBill,
         });
@@ -145,7 +145,7 @@ const addToCart = async (req, res) => {
     return res.status(200).json({
       message: "Items added to cart successfully.",
       cart,
-      cartId: !isAuthenticated ? cartId : undefined
+      cartId: !isAuthenticated ? cartId : undefined,
     });
   } catch (error) {
     await session.abortTransaction();
@@ -254,6 +254,8 @@ const decreaseSignedInProductFromCart = async (req, res) => {
     const cart = isAuthenticated 
       ? await Cart.findOne({ user: req.user._id }).session(session)
       : await Cart.findOne({ cartId: cartId, user: null }).session(session);
+
+      console.log("i am here")
 
     if (!cart) {
       return res.status(404).json({ error: "Cart not found" });
@@ -500,42 +502,54 @@ const clearGuestUserCart = async (req, res) => {
 const mergeCartsAfterLogin = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
+
   try {
     const { cartId } = req.body;
     if (!cartId) {
-      return res.status(400).json({ error: "Guest cart ID is required" });
+      return res.status(400).json({ error: "Guest cart ID is required." });
     }
-    
+
     const guestCart = await Cart.findOne({ cartId, user: null })
       .populate("cartItems.product")
       .session(session);
-      
+
     if (!guestCart) {
-      return res.status(404).json({ error: "Guest cart not found" });
+      return res.status(404).json({ error: "Guest cart not found." });
     }
-    
+
     let userCart = await Cart.findOne({ user: req.user._id })
       .populate("cartItems.product")
       .session(session);
-      
+
     if (!userCart) {
       userCart = new Cart({
         user: req.user._id,
         cartItems: [],
-        totalBill: 0
+        totalBill: 0,
       });
     }
 
     for (const item of guestCart.cartItems) {
+      const foundProduct = await Product.findById(item.product._id).session(session);
+
+      if (!foundProduct) {
+        console.warn(`Skipping item: Product with ID ${item.product._id} no longer exists.`);
+        continue;
+      }
+
       const existingItem = userCart.cartItems.find(
-        cartItem => cartItem.product.toString() === item.product.toString()
+        (cartItem) => cartItem.product.toString() === item.product._id.toString()
       );
 
       if (existingItem) {
         existingItem.quantity += item.quantity;
-        existingItem.price = existingItem.quantity * item.price;
+        existingItem.price = existingItem.quantity * foundProduct.price;
       } else {
-        userCart.cartItems.push(item);
+        userCart.cartItems.push({
+          product: foundProduct._id,
+          quantity: item.quantity,
+          price: item.quantity * foundProduct.price,
+        });
       }
     }
 
@@ -544,8 +558,6 @@ const mergeCartsAfterLogin = async (req, res) => {
     await Cart.deleteOne({ _id: guestCart._id }).session(session);
     await userCart.save({ session });
 
-    console.log("User Cart saved:", userCart);
-
     const populatedUserCart = await Cart.findById(userCart._id)
       .populate("cartItems.product");
 
@@ -553,15 +565,17 @@ const mergeCartsAfterLogin = async (req, res) => {
     session.endSession();
 
     res.status(200).json({
-      message: "Carts merged successfully",
-      cart: populatedUserCart
+      message: "Carts merged successfully.",
+      cart: populatedUserCart,
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
+
     console.error("Error merging carts:", error.message);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error." });
   }
 };
+
 
 module.exports = { getSignedInUserCart, getGuestUserCart, getAllCarts, addToCart, deleteGuestProductFromCart, deleteSignedInProductFromCart, decreaseGuestProductFromCart, decreaseSignedInProductFromCart, clearSignedInUserCart, clearGuestUserCart, mergeCartsAfterLogin  };

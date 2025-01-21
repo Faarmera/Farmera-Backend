@@ -9,13 +9,14 @@ const createOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const userId = req.user._id; 
+    const userId = req.user?._id;
 
-    const cart = await Cart.findOne({ user: userId }).populate("cartItems.product").session(session);
-    
+    const query = userId ? { user: userId } : { cartId: req.body.cartId }; 
+    const cart = await Cart.findOne(query).populate("cartItems.product").session(session);
+
     if (!cart || cart.cartItems.length === 0) {
       await session.abortTransaction();
-      return res.status(400).json({ error: "Your cart is empty." });
+      return res.status(400).json({ error: "Your cart is empty or not found." });
     }
 
     const orderItems = [];
@@ -23,11 +24,18 @@ const createOrder = async (req, res) => {
 
     for (const cartItem of cart.cartItems) {
       const product = cartItem.product;
-      
+
+      if (!product) {
+        errorMessages.push(`Invalid cart item: Product does not exist.`);
+        continue;
+      }
+
       const currentProduct = await Product.findById(product._id).session(session);
-      
+
       if (!currentProduct || currentProduct.qtyAvailable < cartItem.quantity) {
-        errorMessages.push(`Insufficient stock for product: ${product.name}. Only ${currentProduct?.qtyAvailable || 0} available.`);
+        errorMessages.push(
+          `Insufficient stock for product: ${product.name}. Only ${currentProduct?.qtyAvailable || 0} available.`
+        );
         continue;
       }
 
@@ -44,16 +52,16 @@ const createOrder = async (req, res) => {
 
     if (errorMessages.length > 0) {
       await session.abortTransaction();
-      return res.status(400).json({ 
-        error: "Some items could not be processed", 
-        details: errorMessages 
+      return res.status(400).json({
+        error: "Some items could not be processed",
+        details: errorMessages,
       });
     }
 
     const totalPrice = orderItems.reduce((acc, item) => acc + item.qty * item.price, 0);
 
     const newOrder = new Order({
-      user: userId,
+      user: userId || null,
       orderItems,
       shippingAddress: req.body.shippingAddress,
       totalPrice,
@@ -73,13 +81,13 @@ const createOrder = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    
     console.error("Error creating order:", error.message);
     res.status(500).json({ error: "Internal server error." });
   } finally {
     session.endSession();
   }
 };
+
 
 const getAllOrders = async (req, res) => {
   try {

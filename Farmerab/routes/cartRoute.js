@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.get("/user", protectRoute, getSignedInUserCart);
 router.get("/guestUser", getGuestUserCart);
-router.get("/get/allCarts", authorize(['admin']), getAllCarts);
+router.get("/get/allCarts", protectRoute, authorize(['admin']), getAllCarts);
 router.post("/add", addToCart);
 router.patch("/decrease", protectRoute, decreaseSignedInProductFromCart);
 router.patch("/guestDecrease", decreaseGuestProductFromCart);
