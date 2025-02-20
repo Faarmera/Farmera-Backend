@@ -8,26 +8,28 @@ const fs = require("fs");
 const getAllProducts = async (req, res) => {
   try {
     const { category, minPrice, maxPrice, location, search, page = 1, limit = 12 } = req.query;
-    
-    const filter = {};
-    
+   
+    const filter = {
+      qtyAvailable: { $gt: 0 }
+    };
+   
     if (category) {
       const categoryDoc = await Category.findOne({ name: category });
       if (categoryDoc) {
         filter.category = categoryDoc._id;
       }
     }
-    
+   
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = parseFloat(minPrice);
       if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
     }
-    
+   
     if (location) {
       filter.location = location;
     }
-    
+   
     if (search) {
       const searchRegex = new RegExp(search, 'i');
       filter.$or = [
@@ -36,7 +38,7 @@ const getAllProducts = async (req, res) => {
         { store: searchRegex }
       ];
     }
-    
+   
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
@@ -46,16 +48,16 @@ const getAllProducts = async (req, res) => {
         select: 'name'
       }
     };
-    
+   
     const result = await Product.paginate(filter, options);
-    
+   
     res.status(200).json({
       products: result.docs,
       totalProducts: result.totalDocs,
       totalPages: result.totalPages,
       currentPage: result.page
     });
-    
+   
   } catch (error) {
     console.error("Error fetching products:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
