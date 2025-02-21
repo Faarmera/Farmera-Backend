@@ -57,7 +57,106 @@ const getGuestUserCart = async (req, res) => {
   }
 };
 
-const addToCart = async (req, res) => {
+const userAddToCart = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const cartId = req.headers["x-cart-id"] || generateCartId();
+    const isAuthenticated = req.user !== undefined;
+
+    const { products } = req.body;
+
+    if (!products || !Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: "No products provided to add to cart." });
+    }
+
+    let cart = isAuthenticated
+      ? await Cart.findOne({ user: req.user._id }).session(session)
+      : await Cart.findOne({ cartId, user: null }).session(session);
+
+    if (!cart) {
+      cart = new Cart({
+        cartId,
+        user: isAuthenticated ? req.user._id : null,
+        cartItems: [],
+        totalBill: 0,
+      });
+    }
+
+    let totalBill = cart.totalBill;
+    const errorMessages = [];
+
+    for (const productItem of products) {
+      const { productId, quantity } = productItem;
+
+      if (!productId || quantity <= 0) {
+        await session.abortTransaction();
+        return res.status(400).json({ error: "Valid product ID and quantity are required." });
+      }
+
+      const foundProduct = await Product.findById(productId).session(session);
+      if (!foundProduct) {
+        errorMessages.push(`Product with ID ${productId} does not exist.`);
+        continue;
+      }
+
+      if (quantity > foundProduct.qtyAvailable) {
+        errorMessages.push(
+          `Product with ID ${productId} is out of stock. Only ${foundProduct.qtyAvailable} units available.`
+        );
+        continue;
+      }
+
+      foundProduct.qtyAvailable -= quantity;
+      await foundProduct.save({ session });
+
+      const productBill = foundProduct.price * quantity;
+
+      const existingCartItem = cart.cartItems.find(
+        (cartItem) => cartItem.product.toString() === productId
+      );
+
+      if (existingCartItem) {
+        existingCartItem.quantity += quantity;
+        existingCartItem.price = existingCartItem.quantity * foundProduct.price;
+      } else {
+        cart.cartItems.push({
+          product: foundProduct._id, // Ensure valid reference
+          quantity,
+          price: productBill,
+        });
+      }
+
+      totalBill += productBill;
+    }
+
+    cart.totalBill = totalBill;
+    await cart.save({ session });
+
+    if (errorMessages.length > 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ error: "Some items could not be added.", details: errorMessages });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.status(200).json({
+      message: "Items added to cart successfully.",
+      cart,
+      cartId: !isAuthenticated ? cartId : undefined,
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Error adding to cart:", error.message);
+    return res.status(500).json({ error: "An error occurred while adding items to the cart." });
+  }
+};
+
+const guestAddToCart = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -578,4 +677,4 @@ const mergeCartsAfterLogin = async (req, res) => {
 };
 
 
-module.exports = { getSignedInUserCart, getGuestUserCart, getAllCarts, addToCart, deleteGuestProductFromCart, deleteSignedInProductFromCart, decreaseGuestProductFromCart, decreaseSignedInProductFromCart, clearSignedInUserCart, clearGuestUserCart, mergeCartsAfterLogin  };
+module.exports = { getSignedInUserCart, getGuestUserCart, getAllCarts, guestAddToCart, userAddToCart, deleteGuestProductFromCart, deleteSignedInProductFromCart, decreaseGuestProductFromCart, decreaseSignedInProductFromCart, clearSignedInUserCart, clearGuestUserCart, mergeCartsAfterLogin  };
