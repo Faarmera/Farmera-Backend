@@ -78,7 +78,6 @@ const getCategoryByName = async (req, res) => {
   }
 };
 
-
 const updateCategory = async (req, res) => {
   try {
       const { id } = req.params;
@@ -130,6 +129,4 @@ const deleteCategory = async (req, res) => {
     }
 }
 
-module.exports = {
-  createCategory, getAllCategories, getCategoryByName, updateCategory, deleteCategory 
-} 
+module.exports = { createCategory, getAllCategories, getCategoryByName, updateCategory, deleteCategory } 

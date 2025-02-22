@@ -122,7 +122,7 @@ const userAddToCart = async (req, res) => {
         existingCartItem.price = existingCartItem.quantity * foundProduct.price;
       } else {
         cart.cartItems.push({
-          product: foundProduct._id, // Ensure valid reference
+          product: foundProduct._id,
           quantity,
           price: productBill,
         });
