@@ -3,16 +3,17 @@ const Cart = require("../models/Cart.js");
 const Product = require("../models/Product.js")
 const mongoose = require("mongoose");
 const User = require("../models/User.js")
+const { sendEmail } = require("../controllers/emailController.js");
 
 const createOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
-
+  
   try {
     const userId = req.user?._id;
-    const query = userId ? { user: userId } : { cartId: req.body.cartId }; 
+    const query = userId ? { user: userId } : { cartId: req.body.cartId };
     const cart = await Cart.findOne(query).populate("cartItems.product").session(session);
-
+    
     if (!cart || cart.cartItems.length === 0) {
       await session.abortTransaction();
       return res.status(400).json({ error: "Your cart is empty or not found." });
@@ -23,14 +24,12 @@ const createOrder = async (req, res) => {
 
     for (const cartItem of cart.cartItems) {
       const product = cartItem.product;
-
       if (!product) {
         errorMessages.push(`Invalid cart item: Product does not exist.`);
         continue;
       }
 
       const currentProduct = await Product.findById(product._id).session(session);
-
       if (!currentProduct || currentProduct.qtyAvailable < cartItem.quantity) {
         errorMessages.push(
           `Insufficient stock for product: ${product.name}. Only ${currentProduct?.qtyAvailable || 0} available.`
@@ -40,7 +39,6 @@ const createOrder = async (req, res) => {
 
       currentProduct.qtyAvailable -= cartItem.quantity;
       await currentProduct.save({ session });
-
       orderItems.push({
         name: product.name,
         qty: cartItem.quantity,
@@ -58,7 +56,6 @@ const createOrder = async (req, res) => {
     }
 
     const totalPrice = orderItems.reduce((acc, item) => acc + item.qty * item.price, 0);
-
     const newOrder = new Order({
       user: userId || null,
       orderItems,
@@ -67,16 +64,52 @@ const createOrder = async (req, res) => {
     });
 
     await newOrder.save({ session });
-
     cart.cartItems = [];
     cart.totalBill = 0;
     await cart.save({ session });
-
     await session.commitTransaction();
 
+    if (userId) {
+      const user = await User.findById(userId);
+      if (user) {
+        const orderItemsHtml = orderItems
+          .map(
+            (item) => `
+              <tr>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.name}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${item.qty}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">₦${item.price}</td>
+              </tr>
+            `
+          )
+          .join("");
+
+        const emailContent = `
+          <p>Hi ${user.firstname},</p>
+          <p>Thank you for your order! Below are your order details:</p>
+          <table style="border-collapse: collapse; width: 100%; text-align: left;">
+            <tr>
+              <th style="border: 1px solid #ddd; padding: 8px;">Item</th>
+              <th style="border: 1px solid #ddd; padding: 8px;">Quantity</th>
+              <th style="border: 1px solid #ddd; padding: 8px;">Price</th>
+            </tr>
+            ${orderItemsHtml}
+          </table>
+          <p><strong>Total Price:</strong> ₦${totalPrice}</p>
+          <p><strong>Shipping Address:</strong> ${newOrder.shippingAddress}</p>
+          <p>We will notify you when your order is shipped.</p>
+          <p>Best regards,<br>The Farmera Team</p>
+        `;
+
+        await sendEmail(user.email, "Order Confirmation", emailContent);
+      }
+    }
+
+    const populatedOrder = await Order.findById(newOrder._id).populate('orderItems.product');
+
     res.status(201).json({
-      message: "Order created successfully.",
-      order: newOrder,
+      message: "Order created successfully. A confirmation email has been sent.",
+      order: populatedOrder,
     });
   } catch (error) {
     await session.abortTransaction();
