@@ -49,6 +49,7 @@ const createOrder = async (req, res) => {
 
     if (errorMessages.length > 0) {
       await session.abortTransaction();
+
       return res.status(400).json({
         error: "Some items could not be processed",
         details: errorMessages,
@@ -59,7 +60,7 @@ const createOrder = async (req, res) => {
     const newOrder = new Order({
       user: userId || null,
       orderItems,
-      shippingAddress: req.body.shippingAddress,
+      deliveryAddress: req.body.deliveryAddress,
       totalPrice,
     });
 
@@ -96,8 +97,8 @@ const createOrder = async (req, res) => {
             ${orderItemsHtml}
           </table>
           <p><strong>Total Price:</strong> ₦${totalPrice}</p>
-          <p><strong>Shipping Address:</strong> ${newOrder.shippingAddress}</p>
-          <p>We will notify you when your order is shipped.</p>
+          <p><strong>Delivery Address:</strong> ${newOrder.deliveryAddress}</p>
+          <p>We will notify you when your order is Sent.</p>
           <p>Best regards,<br>The Farmera Team</p>
         `;
 
@@ -122,7 +123,7 @@ const createOrder = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const { page = 1, limit = 10, isPaid, isShipped, isReturned, isCancelled, user, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query;
+    const { page = 1, limit = 10, isPaid, isSent, isReturned, isCancelled, user, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query;
 
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.max(1, Math.min(parseInt(limit), 100));
@@ -130,7 +131,7 @@ const getAllOrders = async (req, res) => {
     const filter = {};
 
     if (isPaid !== undefined) filter.isPaid = isPaid === "true";
-    if (isShipped !== undefined) filter.isShipped = isShipped === "true";
+    if (isSent !== undefined) filter.isSent = isSent === "true";
     if (isReturned !== undefined) filter.isReturned = isReturned === "true";
     if (isCancelled !== undefined) filter.isCancelled = isCancelled === "true";
 
@@ -189,7 +190,7 @@ const getUserOrder = async (req, res) => {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    const { page = 1, limit = 10, isPaid, isShipped, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query; 
+    const { page = 1, limit = 10, isPaid, isSent, sort = "-createdAt", startDate, endDate, minTotal, maxTotal } = req.query; 
  
     const pageNum = Math.max(1, parseInt(page)); 
     const limitNum = Math.max(1, Math.min(parseInt(limit), 100));
@@ -206,7 +207,7 @@ const getUserOrder = async (req, res) => {
     }; 
      
     if (isPaid !== undefined) filter.isPaid = isPaid === "true"; 
-    if (isShipped !== undefined) filter.isShipped = isShipped === "true"; 
+    if (isSent !== undefined) filter.isSent = isSent === "true"; 
  
     if (startDate || endDate) { 
       filter.createdAt = {}; 
@@ -359,10 +360,10 @@ const cancelOrder = async (req, res) => {
         .json({ message: "Returned orders cannot be canceled." });
     }
 
-    if (order.isShipped) {
+    if (order.isSent) {
       return res
         .status(400)
-        .json({ message: "Shipped orders cannot be canceled. You can return within 7 days after it has reached the designated pickup point" });
+        .json({ message: "Sent orders cannot be canceled. You can return within 7 days after it has reached the designated pickup point" });
     }
 
     if (!isWithinCancellationWindow(order.createdAt)) {
