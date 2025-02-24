@@ -29,7 +29,7 @@ const orderSchema = mongoose.Schema(
         returnedAt: Date,
       },
     ],
-    deliveryAddress: {
+    shippingAddress: {
       type: String,
       required: true,
     },
@@ -60,7 +60,7 @@ const orderSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
-    isSent: {
+    isShipped: {
       type: Boolean,
       default: false,
     },
