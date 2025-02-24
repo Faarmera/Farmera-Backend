@@ -21,6 +21,8 @@ const createOrder = async (req, res) => {
 
     const orderItems = [];
     const errorMessages = [];
+    // Track products by creator for notifications
+    const productsByCreator = {};
 
     for (const cartItem of cart.cartItems) {
       const product = cartItem.product;
@@ -35,6 +37,19 @@ const createOrder = async (req, res) => {
           `Insufficient stock for product: ${product.name}. Only ${currentProduct?.qtyAvailable || 0} available.`
         );
         continue;
+      }
+
+      // Group products by creator for later notification
+      if (currentProduct.createdBy) {
+        if (!productsByCreator[currentProduct.createdBy]) {
+          productsByCreator[currentProduct.createdBy] = [];
+        }
+        productsByCreator[currentProduct.createdBy].push({
+          name: product.name,
+          qty: cartItem.quantity,
+          price: product.price,
+          productId: product._id
+        });
       }
 
       currentProduct.qtyAvailable -= cartItem.quantity;
@@ -69,6 +84,7 @@ const createOrder = async (req, res) => {
     await cart.save({ session });
     await session.commitTransaction();
 
+    // Send email to the buyer
     if (userId) {
       const user = await User.findById(userId);
       if (user) {
@@ -101,9 +117,71 @@ const createOrder = async (req, res) => {
           <p>Best regards,<br>The Farmera Team</p>
         `;
 
-        await sendEmail(user.email, "Order Confirmation", emailContent);
+        await sendEmail(user.email, "Farmera Order Confirmation", emailContent);
       }
     }
+
+    // Send notifications to each product creator
+    const notifyProductCreators = async () => {
+      for (const creatorId in productsByCreator) {
+        try {
+          const creator = await User.findById(creatorId);
+          if (creator && creator.email) {
+            const products = productsByCreator[creatorId];
+            const productsHtml = products
+              .map(
+                (item) => `
+                  <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${item.name}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${item.qty}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">₦${item.price}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">₦${item.qty * item.price}</td>
+                  </tr>
+                `
+              )
+              .join("");
+
+            const subtotal = products.reduce((acc, item) => acc + (item.qty * item.price), 0);
+            const buyer = await User.findById(userId);
+            const buyerName = buyer ? `${buyer.firstname} ${buyer.lastname}` : "A customer";
+            const buyerPhone = buyer ? buyer.phonenumber : "Not available";
+
+            const creatorEmailContent = `
+              <p>Hi ${creator.firstname},</p>
+              <p>Good news! ${buyerName} has placed an order for your products.</p>
+              <p>The following items will be picked up from your farm in approximately 30 minutes:</p>
+              <table style="border-collapse: collapse; width: 100%; text-align: left;">
+                <tr>
+                  <th style="border: 1px solid #ddd; padding: 8px;">Product</th>
+                  <th style="border: 1px solid #ddd; padding: 8px;">Quantity</th>
+                  <th style="border: 1px solid #ddd; padding: 8px;">Unit Price</th>
+                  <th style="border: 1px solid #ddd; padding: 8px;">Subtotal</th>
+                </tr>
+                ${productsHtml}
+                <tr>
+                  <td colspan="3" style="border: 1px solid #ddd; padding: 8px; text-align: right;"><strong>Total:</strong></td>
+                  <td style="border: 1px solid #ddd; padding: 8px;"><strong>₦${subtotal}</strong></td>
+                </tr>
+              </table>
+              
+              <p><strong>Buyer's Phone:</strong> ${buyerPhone}</p>
+              <p><strong>Pickup Address:</strong> ${creator.farmAddress || "Your registered farm address"}</p>
+              <p>Please have these items ready for pickup. The buyer or our delivery partner will arrive at your location shortly.</p>
+              <p>Order ID: ${newOrder._id}</p>
+              <p>Best regards,<br>The Farmera Team</p>
+            `;
+
+            await sendEmail(creator.email, "Farmera New Order Alert - Products Purchased", creatorEmailContent);
+          }
+        } catch (error) {
+          console.error(`Failed to notify product creator ${creatorId}:`, error);
+          // Continue with other notifications even if one fails
+        }
+      }
+    };
+    
+    // Execute notifications in the background without awaiting
+    notifyProductCreators().catch(err => console.error("Error sending creator notifications:", err));
 
     const populatedOrder = await Order.findById(newOrder._id).populate('orderItems.product');
 
@@ -365,11 +443,11 @@ const cancelOrder = async (req, res) => {
         .json({ message: "Shipped orders cannot be canceled. You can return within 7 days after it has reached the designated pickup point" });
     }
 
-    // if (!isWithinCancellationWindow(order.createdAt)) {
-    //   return res
-    //     .status(400)
-    //     .json({ message: "Order is no longer eligible for cancellation." });
-    // }
+    if (!isWithinCancellationWindow(order.createdAt)) {
+      return res
+        .status(400)
+        .json({ message: "Order is no longer eligible for cancellation. An order can only be cancelled within 24 hours of purchase" });
+    }
 
     order.isCancelled = true;
     order.cancelledAt = new Date();
