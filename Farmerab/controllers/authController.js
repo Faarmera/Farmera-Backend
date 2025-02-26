@@ -364,7 +364,7 @@ const farmerSignUp = async (req, res) => {
         expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
     });
 
-    const verificationUrl = `${process.env.BASE_URL}/auth/verify/${newUser._id}/${uniqueString}`;
+    const verificationUrl = `https://farmera-1.vercel.app/auth/verify/${newUser._id}/${uniqueString}`;
     const emailHtml = `
         <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
         <a href="${verificationUrl}">Verify Email</a> <br>
@@ -467,7 +467,7 @@ const buyerSignUp = async (req, res) => {
       console.error('BASE_URL is not defined in your environment variables.');
     }
 
-    const verificationUrl = `${process.env.BASE_URL}/auth/verify/${newUser._id}/${uniqueString}`;
+    const verificationUrl = `https://farmera-1.vercel.app/auth/verify/${newUser._id}/${uniqueString}`;
     const emailHtml = `
         <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
         <a href="${verificationUrl}">Verify Email</a> <br>
