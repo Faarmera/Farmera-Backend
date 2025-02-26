@@ -17,7 +17,7 @@ app.use(cookieParser());
 
 app.use(cors({
   origin: function(origin, callback) {
-    const allowedOrigins = ['http://localhost:5173', 'http://localhost:5175', 'http://localhost:5174', `https://farm-olive.vercel.app`, 'https://Faarmeeraa.netlify.app' ,  'https://farmera-eyu3.onrender.com'];
+    const allowedOrigins = ['http://localhost:5173', 'http://localhost:5175', 'http://localhost:5174', `https://farm-olive.vercel.app`, 'https://faarmeeraa.netlify.app' ,  'https://farmera-eyu3.onrender.com'];
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
