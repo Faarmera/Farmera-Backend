@@ -159,7 +159,6 @@ const forgotPassword = async (req, res) => {
   }
 };
 
-
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword, confirmNewPassword } = req.body;

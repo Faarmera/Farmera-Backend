@@ -9,7 +9,7 @@ router.post("/signup/buyer", buyerSignUp)
 router.post("/signup/farmer", farmerSignUp)
 router.post("/signin", signIn);
 router.post("/signout", protectRoute, signOut);
-router.get("/verify-otp", verifyOTP)
+router.post("/verify-otp", verifyOTP)
 router.post("/resend-otp", resendVerificationOTP)
 router.post("/forgotPassword", /*authorize(['admin', `buyer`, `farmer`]),*/ forgotPassword);
 router.post("/resetPassword", /*authorize(['admin', `buyer`, `farmer`]),*/ resetPassword);
