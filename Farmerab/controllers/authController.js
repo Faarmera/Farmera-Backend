@@ -1,8 +1,8 @@
 const User = require("../models/User.js");
 const jwt = require("jsonwebtoken")
-const UserVerification = require("../models/UserVerification.js")
+const OTPVerification = require("../models/OTPVerification.js")
 const { sendEmail } = require('../controllers/emailController.js');
-const { v4: uuidv4 } = require('uuid');
+// const { v4: uuidv4 } = require('uuid');
 const generateTokenAndSetCookie = require("../utils/generateTokenAndSetCookie.js");
 const bcrypt = require("bcryptjs");
 const nodemailer = require('nodemailer')
@@ -12,11 +12,19 @@ const path = require('path');
 const Role = require("../models/Role.js")
 
 
-const verifyEmail = async (req, res) => {
-  const { userId, uniqueString } = req.params;
+const verifyOTP = async (req, res) => {
+  const { email, otp } = req.body;
 
   try {
-    const verificationRecord = await UserVerification.findOne({ userId });
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
+    }
+
+    const verificationRecord = await OTPVerification.findOne({ userId: user._id });
     if (!verificationRecord) {
       return res.status(404).json({ 
         success: false, 
@@ -24,33 +32,33 @@ const verifyEmail = async (req, res) => {
       });
     }
 
-    const { uniqueString: hashedString, expiresAt } = verificationRecord;
+    const { otp: hashedOTP, expiresAt } = verificationRecord;
 
     if (expiresAt < Date.now()) {
-      await UserVerification.deleteOne({ userId });
+      await OTPVerification.deleteOne({ userId: user._id });
       return res.status(400).json({ 
         success: false, 
-        message: 'Verification link has expired' 
+        message: 'OTP has expired' 
       });
     }
 
-    const isMatch = await bcrypt.compare(uniqueString, hashedString);
+    const isMatch = await bcrypt.compare(otp, hashedOTP);
     if (!isMatch) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Invalid verification link' 
+        message: 'Invalid OTP' 
       });
     }
 
-    await User.updateOne({ _id: userId }, { emailVerified: true });
-    await UserVerification.deleteOne({ userId });
+    await User.updateOne({ _id: user._id }, { emailVerified: true });
+    await OTPVerification.deleteOne({ userId: user._id });
 
     return res.status(200).json({ 
       success: true, 
       message: 'Email verified successfully' 
     });
   } catch (error) {
-    console.error('Error during email verification:', error.message);
+    console.error('Error during OTP verification:', error.message);
     return res.status(500).json({ 
       success: false, 
       message: 'Server error during verification' 
@@ -58,7 +66,15 @@ const verifyEmail = async (req, res) => {
   }
 };
 
-const resendVerificationEmail = async (req, res) => {
+const generateOTP = (length = 6) => {
+  let otp = '';
+  for (let i = 0; i < length; i++) {
+    otp += Math.floor(Math.random() * 10);
+  }
+  return otp;
+};
+
+const resendVerificationOTP = async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -76,134 +92,133 @@ const resendVerificationEmail = async (req, res) => {
       return res.status(400).json({ error: "Email is already verified" });
     }
 
-    const uniqueString = uuidv4() + user._id;
-    const hashedString = await bcrypt.hash(uniqueString, 10);
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, 10);
 
-    const verificationRecord = await UserVerification.findOneAndUpdate(
-      { userId: user._id },
-      {
-        uniqueString: hashedString,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 30 * 60 * 1000,
-      },
-      { upsert: true, new: true }
-    );
+    await OTPVerification.deleteMany({ userId: user._id });
 
-    const verificationUrl = `${process.env.BASE_URL}/auth/verify/${user._id}/${uniqueString}`;
+    await OTPVerification.create({
+      userId: user._id,
+      otp: hashedOTP,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
+    });
+
     const emailHtml = `
-      <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
-        <a href="${verificationUrl}">Verify Email</a> <br>
-        This link will expire in 30 minutes. <br>
-        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
-        Best, <br>  <br>
-        The Farmera Team</p>
+      <p><strong>Hi there</strong>,<br>
+      Thank you for signing up on Farmera.<br>
+      Your verification OTP is: <strong>${otp}</strong><br>
+      This OTP will expire in 30 minutes.<br>
+      If you did not sign up for a Farmera account, you can safely ignore this email.<br><br><br>
+      Best,<br>
+      The Farmera Team</p>
     `;
 
-    await sendEmail(email, "Farmera Resend Verification Email", emailHtml);
+    await sendEmail(email, "Farmera Email Verification OTP", emailHtml);
 
-    res.status(200).json({ message: "Verification email has been resent" });
+    res.status(200).json({ message: "Verification OTP has been sent to your email" });
   } catch (error) {
-    console.error("Error in resendVerification endpoint:", error.message);
+    console.error("Error in resendVerificationOTP endpoint:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
 const forgotPassword = async (req, res) => {
   try {
-      const { email } = req.body;
+    const { email } = req.body;
 
-      const user = await User.findOne({ email });
-      if (!user) {
-          return res.status(404).json({ error: "User not found" });
-      }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-      const resetToken = crypto.randomBytes(32).toString('hex');
-      
-      const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-      
-      const resetTokenExpiry = Date.now() + 60 * 60 * 1000;
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, 10);
+    
+    user.resetPasswordToken = hashedOTP;
+    user.resetPasswordExpiry = Date.now() + 60 * 60 * 1000; // 1 hour
+    await user.save();
 
-      user.resetPasswordToken = hashedResetToken;
-      user.resetPasswordExpiry = resetTokenExpiry;
-      await user.save();
+    const emailHtml = `
+      <p><strong>Hello ${user.firstname},</strong></p><br>
+      <p>You have requested a password reset for your Farmera account.</p><br>
+      <p>Your password reset OTP is: <strong>${otp}</strong></p>
+      <p>This OTP will expire in 1 hour.</p>
+      <p>If you did not request a password reset, please ignore this email.</p><br>
+      <p>Best regards,<br>The Farmera Team</p>
+    `;
 
-      const resetUrl = `${process.env.BASE_URL}/auth/resetPassword?token=${resetToken}&email=${email}`;
+    await sendEmail(email, 'Farmera Password Reset OTP', emailHtml);
 
-      const emailHtml = `
-          <p><strong>Hello ${user.firstname},</strong></p> <br>
-          <p>You have requested a password reset for your Farmera account.</p> <br>
-          <p>Click the link below to reset your password. This link will expire in 1 hour:</p>
-          <a href="${resetUrl}">Reset Password</a>
-          <p>If you did not request a password reset, please ignore this email.</p> <br>
-          <p>Best regards,<br>The Farmera Team</p>
-      `;
-
-      await sendEmail(email, 'Farmera Password Reset', emailHtml);
-
-      res.status(200).json({ 
-          message: "Password reset instructions have been sent to your email" 
-      });
+    res.status(200).json({
+      message: "Password reset OTP has been sent to your email"
+    });
   } catch (error) {
-      console.error("Error in forgot password controller:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error in forgot password controller:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
+
 const resetPassword = async (req, res) => {
   try {
-      const { email, token, newPassword, confirmNewPassword } = req.body;
+    const { email, otp, newPassword, confirmNewPassword } = req.body;
 
-      if (!email || !token) {
-          return res.status(400).json({ message: "Invalid reset request" });
-      }
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
 
-      if (!newPassword || !confirmNewPassword) {
-          return res.status(400).json({ message: "New password and confirm new password are required" });
-      }
+    if (!newPassword || !confirmNewPassword) {
+      return res.status(400).json({ message: "New password and confirm new password are required" });
+    }
 
-      if (newPassword !== confirmNewPassword) {
-          return res.status(400).json({ message: "New password and confirm new password do not match" });
-      }
+    if (newPassword !== confirmNewPassword) {
+      return res.status(400).json({ message: "New password and confirm new password do not match" });
+    }
 
-      const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-      if (!passwordRegex.test(newPassword)) {
-          return res.status(400).json({ 
-              message: "Password must contain at least one uppercase letter and one special character." 
-          });
-      }
+    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message: "Password must contain at least one uppercase letter and one special character."
+      });
+    }
 
-      const user = await User.findOne({ email });
-      if (!user) {
-          return res.status(400).json({ message: "User with this email does not exist" });
-      }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "User with this email does not exist" });
+    }
 
-      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    if (!user.resetPasswordToken || !user.resetPasswordExpiry) {
+      return res.status(400).json({ message: "No password reset request was initiated" });
+    }
 
-      if (
-          user.resetPasswordToken !== hashedToken || 
-          user.resetPasswordExpiry < Date.now()
-      ) {
-          return res.status(400).json({ message: "Invalid or expired reset token" });
-      }
+    if (user.resetPasswordExpiry < Date.now()) {
+      return res.status(400).json({ message: "OTP has expired" });
+    }
 
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    const isMatch = await bcrypt.compare(otp, user.resetPasswordToken);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
 
-      user.password = hashedPassword;
-      user.resetPasswordToken = undefined;
-      user.resetPasswordExpiry = undefined;
-      await user.save();
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-      return res.status(200).json({ message: "Password reset successful" });
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpiry = undefined;
+    await user.save();
+
+    return res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
-      console.error("Error in reset password controller: ", error.message);
-      return res.status(500).json({ error: "Internal server error" });
+    console.error("Error in reset password controller: ", error.message);
+    return res.status(500).json({ error: "Internal server error" });
   }
 };
 
 const adminSignUp = async (req, res) => {
   try {
-    const { firstname, lastname, email, phonenumber, password} = req.body;
+    const { firstname, lastname, email, phonenumber, password } = req.body;
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -216,18 +231,18 @@ const adminSignUp = async (req, res) => {
 
     const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
     if (!passwordRegex.test(password)) {
-        return res.status(400).json({
-          message: 'Password must contain at least one uppercase letter and one special character.',
-        });
+      return res.status(400).json({
+        message: 'Password must contain at least one uppercase letter and one special character.',
+      });
     }
 
     if (phonenumber.length !== 11) {
       return res.status(400).json({ error: "Phone Number must be 11 digits long" });
     }
 
-    const existingPhoneNumber = await User.findOne( { phonenumber });
+    const existingPhoneNumber = await User.findOne({ phonenumber });
     if (existingPhoneNumber) {
-      return res.status(400).json({ error: "A user already has this phone number. Kindly use another"})
+      return res.status(400).json({ error: "A user already has this phone number. Kindly use another" });
     }
 
     const existingEmail = await User.findOne({ email });
@@ -241,61 +256,62 @@ const adminSignUp = async (req, res) => {
     const userRole = await Role.findOne({ name: 'admin' });
 
     const newUser = new User({
-        firstname,
-        lastname,
-        email,
-        type: "admin",
-        phonenumber,
-        password: hashedPassword,
-        emailVerified: false,
-        role: userRole._id
+      firstname,
+      lastname,
+      email,
+      type: "admin",
+      phonenumber,
+      password: hashedPassword,
+      emailVerified: false,
+      role: userRole._id
     });
 
     await newUser.save();
 
     const populatedUser = await User.findById(newUser._id).populate('role');
 
-    const uniqueString = uuidv4() + newUser._id;
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, 10);
 
-    await UserVerification.create({
-        userId: newUser._id,
-        uniqueString: await bcrypt.hash(uniqueString, 10),
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
+    await OTPVerification.create({
+      userId: newUser._id,
+      otp: hashedOTP,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
     });
 
-    const verificationUrl = `https://farmera-1.vercel.app/auth/verify/${newUser._id}/${uniqueString}`;
     const emailHtml = `
-        <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
-        <a href="${verificationUrl}">Verify Email</a> <br>
-        This link will expire in 30 minutes. <br>
-        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
-        Best, <br>  <br>
-        The Farmera Team</p>
+      <p><strong>Hi there</strong>,<br>
+      Thank you for signing up on Farmera.<br>
+      Your verification OTP is: <strong>${otp}</strong><br>
+      This OTP will expire in 30 minutes.<br>
+      If you did not sign up for a Farmera account, you can safely ignore this email.<br><br><br>
+      Best,<br>
+      The Farmera Team</p>
     `;
 
-    await sendEmail(email, 'Farmera Verification Mail', emailHtml);
+    await sendEmail(email, 'FARMERA Verification OTP', emailHtml);
 
     res.status(201).json({
-        message: 'User created. Verification email sent.',
-        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
-        user: {
-            _id: populatedUser._id,
-            firstname: populatedUser.firstname,
-            lastname: populatedUser.lastname,
-            email: populatedUser.email,
-            type: populatedUser.type ,
-            phonenumber: populatedUser.phonenumber,
-            role: {
-                _id: populatedUser.role._id,
-                name: populatedUser.role.name
-            }
-        },
+      message: 'User created. Verification OTP sent to your email.',
+      token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
+      user: {
+        _id: populatedUser._id,
+        firstname: populatedUser.firstname,
+        lastname: populatedUser.lastname,
+        email: populatedUser.email,
+        type: populatedUser.type,
+        phonenumber: populatedUser.phonenumber,
+        role: {
+          _id: populatedUser.role._id,
+          name: populatedUser.role.name
+        }
+      },
     });
-} catch (error) {
-    console.error("Error in signFarmerUp controller:", error.message);
+  } catch (error) {
+    console.error("Error in adminSignUp controller:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
-}
+  }
 };
 
 const farmerSignUp = async (req, res) => {
@@ -354,27 +370,27 @@ const farmerSignUp = async (req, res) => {
 
     const populatedUser = await User.findById(newUser._id).populate('role');
 
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, 10);
 
-    const uniqueString = uuidv4() + newUser._id;
-
-    await UserVerification.create({
-        userId: newUser._id,
-        uniqueString: await bcrypt.hash(uniqueString, 10),
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
+    await OTPVerification.create({
+      userId: newUser._id,
+      otp: hashedOTP,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
     });
 
-    const verificationUrl = `https://farmera-1.vercel.app/auth/verify/${newUser._id}/${uniqueString}`;
     const emailHtml = `
-        <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
-        <a href="${verificationUrl}">Verify Email</a> <br>
-        This link will expire in 30 minutes. <br>
-        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
-        Best, <br>  <br>
-        The Farmera Team</p>
+      <p><strong>Hi there</strong>,<br>
+      Thank you for signing up on Farmera.<br>
+      Your verification OTP is: <strong>${otp}</strong><br>
+      This OTP will expire in 30 minutes.<br>
+      If you did not sign up for a Farmera account, you can safely ignore this email.<br><br><br>
+      Best,<br>
+      The Farmera Team</p>
     `;
 
-    await sendEmail(email, 'Farmera Verification Mail', emailHtml);
+    await sendEmail(email, 'FARMERA Verification OTP', emailHtml);
 
     res.status(201).json({
         message: 'User created. Verification email sent.',
@@ -454,30 +470,27 @@ const buyerSignUp = async (req, res) => {
 
     const populatedUser = await User.findById(newUser._id).populate('role');
 
-    const uniqueString = uuidv4() + newUser._id;
+    const otp = generateOTP();
+    const hashedOTP = await bcrypt.hash(otp, 10);
 
-    await UserVerification.create({
-        userId: newUser._id,
-        uniqueString: await bcrypt.hash(uniqueString, 10),
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
+    await OTPVerification.create({
+      userId: newUser._id,
+      otp: hashedOTP,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 30 * 60 * 1000, // 30 minutes
     });
 
-    if (!process.env.BASE_URL) {
-      console.error('BASE_URL is not defined in your environment variables.');
-    }
-
-    const verificationUrl = `https://farmera-1.vercel.app/auth/verify/${newUser._id}/${uniqueString}`;
     const emailHtml = `
-        <p> <strong> Hi there</strong>, <br>  <br> Thank you for signing up on Farmera. <br>  <br> Click on the link below to verify your email: <br>
-        <a href="${verificationUrl}">Verify Email</a> <br>
-        This link will expire in 30 minutes. <br>
-        If you did not sign up for a Farmera account, you can safely ignore this email. <br> <br><br>
-        Best, <br>  <br>
-        The Farmera Team</p>
+      <p><strong>Hi there</strong>,<br>
+      Thank you for signing up on Farmera.<br>
+      Your verification OTP is: <strong>${otp}</strong><br>
+      This OTP will expire in 30 minutes.<br>
+      If you did not sign up for a Farmera account, you can safely ignore this email.<br><br><br>
+      Best,<br>
+      The Farmera Team</p>
     `;
 
-    await sendEmail(email, 'FARMERA Verification Mail', emailHtml);
+    await sendEmail(email, 'FARMERA Verification OTP', emailHtml);
 
     res.status(201).json({
         message: 'User created. Verification email sent.',
@@ -550,5 +563,5 @@ const signOut = async (req, res) => {
 };
 
 module.exports = {
-  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyEmail, resendVerificationEmail
+  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendVerificationOTP
 }
