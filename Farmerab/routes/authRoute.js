@@ -1,6 +1,6 @@
 const express = require("express")
 const router = express.Router()
-const { adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, verifyOTP, resendVerificationOTP, resetPassword, forgotPassword} = require("../controllers/authController.js")
+const { adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, verifyOTP, resendVerificationOTP, resetPassword, verifyResetOTP, forgotPassword} = require("../controllers/authController.js")
 const {protectRoute} = require("../middlewares/protectRoute.js")
 // const authorize = require('../middlewares/roleCheckMiddleware.js');
 
@@ -11,6 +11,7 @@ router.post("/signin", signIn);
 router.post("/signout", protectRoute, signOut);
 router.post("/verify-otp", verifyOTP)
 router.post("/resend-otp", resendVerificationOTP)
+router.post("/verify-reset-otp", verifyResetOTP)
 router.post("/forgotPassword", /*authorize(['admin', `buyer`, `farmer`]),*/ forgotPassword);
 router.post("/resetPassword", /*authorize(['admin', `buyer`, `farmer`]),*/ resetPassword);
 

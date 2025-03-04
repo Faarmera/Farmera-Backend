@@ -148,7 +148,7 @@ const forgotPassword = async (req, res) => {
       <p>Best regards,<br>The Farmera Team</p>
     `;
 
-    await sendEmail(email, 'Farmera Password Reset OTP', emailHtml);
+    await sendEmail(email, 'FARMERA Password Reset OTP', emailHtml);
 
     res.status(200).json({
       message: "Password reset OTP has been sent to your email"
@@ -212,6 +212,39 @@ const resetPassword = async (req, res) => {
   } catch (error) {
     console.error("Error in reset password controller: ", error.message);
     return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const verifyResetOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.resetPasswordToken || !user.resetPasswordExpiry) {
+      return res.status(400).json({ message: "No password reset request was initiated" });
+    }
+
+    if (user.resetPasswordExpiry < Date.now()) {
+      return res.status(400).json({ message: "OTP has expired" });
+    }
+
+    const isMatch = await bcrypt.compare(otp, user.resetPasswordToken);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+
+    res.status(200).json({ message: "OTP verified successfully" });
+  } catch (error) {
+    console.error("Error in verify reset OTP controller:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -562,5 +595,5 @@ const signOut = async (req, res) => {
 };
 
 module.exports = {
-  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendVerificationOTP
+  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendVerificationOTP, verifyResetOTP
 }
