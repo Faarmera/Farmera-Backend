@@ -215,39 +215,6 @@ const resetPassword = async (req, res) => {
   }
 };
 
-const verifyResetOTP = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({ message: "Email and OTP are required" });
-    }
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (!user.resetPasswordToken || !user.resetPasswordExpiry) {
-      return res.status(400).json({ message: "No password reset request was initiated" });
-    }
-
-    if (user.resetPasswordExpiry < Date.now()) {
-      return res.status(400).json({ message: "OTP has expired" });
-    }
-
-    const isMatch = await bcrypt.compare(otp, user.resetPasswordToken);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    res.status(200).json({ message: "OTP verified successfully" });
-  } catch (error) {
-    console.error("Error in verify reset OTP controller:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
 const adminSignUp = async (req, res) => {
   try {
     const { firstname, lastname, email, phonenumber, password } = req.body;
@@ -556,6 +523,12 @@ const signIn = async (req, res) => {
       return res.status(400).json({error: "Invalid username or password"})
     }
 
+    const emailVerified = user.emailVerified
+
+    if (emailVerified === false){
+      return res.status(400).json({error: "You have not verified your email. Kindly click here to verify your email"})
+    }
+
     generateTokenAndSetCookie (user._id, res);
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { 
@@ -595,5 +568,5 @@ const signOut = async (req, res) => {
 };
 
 module.exports = {
-  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendVerificationOTP, verifyResetOTP
+  adminSignUp, buyerSignUp, farmerSignUp, signOut, signIn, resetPassword, forgotPassword, verifyOTP, resendVerificationOTP,
 }
