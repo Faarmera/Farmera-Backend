@@ -2,13 +2,9 @@ const User = require("../models/User.js");
 const jwt = require("jsonwebtoken")
 const OTPVerification = require("../models/OTPVerification.js")
 const { sendEmail } = require('../controllers/emailController.js');
-// const { v4: uuidv4 } = require('uuid');
 const generateTokenAndSetCookie = require("../utils/generateTokenAndSetCookie.js");
 const bcrypt = require("bcryptjs");
-const nodemailer = require('nodemailer')
-const crypto = require("crypto")
 require("dotenv").config();
-const path = require('path');
 const Role = require("../models/Role.js")
 
 
@@ -292,8 +288,8 @@ const adminSignUp = async (req, res) => {
     await sendEmail(email, 'FARMERA Verification OTP', emailHtml);
 
     res.status(201).json({
-      message: 'User created. Verification OTP sent to your email.',
-      token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
+      message: `Admin created. Verification OTP sent to your email: ${email}`,
+      token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' }),
       user: {
         _id: populatedUser._id,
         firstname: populatedUser.firstname,
@@ -392,8 +388,8 @@ const farmerSignUp = async (req, res) => {
     await sendEmail(email, 'FARMERA Verification OTP', emailHtml);
 
     res.status(201).json({
-        message: 'User created. Verification email sent.',
-        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
+        message: `Farmer created. Verification email sent to ${email}`,
+        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' }),
         user: {
             _id: populatedUser._id,
             firstname: populatedUser.firstname,
@@ -492,8 +488,8 @@ const buyerSignUp = async (req, res) => {
     await sendEmail(email, 'FARMERA Verification OTP', emailHtml);
 
     res.status(201).json({
-        message: 'User created. Verification email sent.',
-        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '15d' }),
+        message: `User created. Verification email sent to: ${email}`,
+        token: jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' }),
         user: {
           _id: populatedUser._id,
           firstname: populatedUser.firstname,
