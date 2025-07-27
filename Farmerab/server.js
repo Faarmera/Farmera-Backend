@@ -1,13 +1,13 @@
 require("dotenv").config();
 const express = require("express");
-const connectDB = require("../config/index.js");
+const connectDB = require("../Farmerab/config/index.js");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const cloudinary = require("cloudinary").v2
 const path = require("path");
 const app = express();
 const bodyParser = require("body-parser")
-const seedRoles = require('../controllers/roleController.js');
+const seedRoles = require('../Farmerab/controllers/roleController.js');
 
 // Middlewares
 app.use(express.json());
@@ -37,13 +37,13 @@ app.get('/', (req, res) => {
 
 
 // Routes
-const authRoutes = require("../routes/authRoute.js");
-const userRoutes = require("../routes/userRoute.js");
-const productRoutes = require("../routes/productRoute.js");
-const cartRoutes = require("../routes/cartRoute.js");
-const categoryRoutes = require("../routes/categoryRoute.js");
-const orderRoutes = require("../routes/orderRoute.js");
-const roleRoutes = require("../routes/roleRoute.js")
+const authRoutes = require("../Farmerab/routes/authRoute.js");
+const userRoutes = require("../Farmerab/routes/userRoute.js");
+const productRoutes = require("../Farmerab/routes/productRoute.js");
+const cartRoutes = require("../Farmerab/routes/cartRoute.js");
+const categoryRoutes = require("../Farmerab/routes/categoryRoute.js");
+const orderRoutes = require("../Farmerab/routes/orderRoute.js");
+const roleRoutes = require("../Farmerab/routes/roleRoute.js")
 // const paymentRoutes = require("../routes/paymentRoute.js");
 
 
